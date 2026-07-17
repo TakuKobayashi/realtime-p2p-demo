@@ -1,0 +1,5 @@
+﻿<Solution>
+  <Project Path="PhantomCatWorks.RealtimeP2PKit.csproj" />
+  <Project Path="PhantomCatWorks.RealtimeP2PKit.Demo.Editor.csproj" />
+  <Project Path="PhantomCatWorks.RealtimeP2PKit.Demo.csproj" />
+</Solution>
