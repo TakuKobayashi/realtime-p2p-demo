@@ -353,7 +353,7 @@ P2PManager.Instance.Send(AttackPacketId, new AttackPacket { SkillId = 3, Power =
 
 | 症状 | 原因・対処 |
 |---|---|
-| `RealtimeP2PKit`メニューが出てこない / Consoleにコンパイルエラー | 高確率で **MessagePackのDLLが未インストール**。`NuGet > Manage NuGet Packages`で`MessagePack`をインストールしてください(リポジトリルートREADMEの2-2参照)。 |
+| `RealtimeP2PKit`メニューが出てこない / `CS0246`系のコンパイルエラー(`Newtonsoft`/`NativeWebSocket`/`WebSocket`が見つからない等) | `MessagePack`と`Colyseus.NativeWebSocket`がNuGetForUnity経由でインストールされているか確認してください(リポジトリルートREADMEの2-2参照)。それでも直らない場合は`Packages/com.phantomcatworks.realtimep2p/Runtime/PhantomCatWorks.RealtimeP2PKit.asmdef`の`overrideReferences`が`false`になっているか確認してください(`true`のままだとDLLの自動参照が無効化され、明記していないDLLが一切参照されなくなります)。 |
 | `Send`を呼んでも何も起きない | `Session.State`が`Connected`でない可能性。`DataChannelReady`イベントを待ってから`Send`してください。 |
 | マッチングは成立するが接続しない | 両者が対称NAT(symmetric NAT)配下の可能性。本ライブラリはTURN未使用のため、既知の制限です。 |
 | `[WebRTC] cannot send, data channel not open` の警告が出続ける | `DataChannelReady`前に`Send`を呼んでいます。上と同じ対処。 |

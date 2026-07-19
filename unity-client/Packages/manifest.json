@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.endel.nativewebsocket": "https://github.com/endel/NativeWebSocket.git#upm",
     "com.github-glitchenzo.nugetforunity": "https://github.com/GlitchEnzo/NuGetForUnity.git?path=/src/NuGetForUnity#v4.1.1",
     "com.phantomcatworks.realtimep2p": "file:com.phantomcatworks.realtimep2p",
     "com.unity.2d.sprite": "1.0.0",

@@ -91,17 +91,22 @@ Unity 6000.3系(Unity 6 LTS相当)で作成しています。`Packages/manifest.
 > (https://discussions.unity.com/t/is-com-unity-webrtc-still-supported/1718939)。
 > 現状Unity 6000.3系では動作しますが、Unityのバージョンを上げる際はこの点にご注意ください。
 
-### 2-2. MessagePackをNuGetForUnityでインストール(★ここが一番詰まりやすいポイント)
+### 2-2. MessagePack と NativeWebSocket を NuGetForUnity でインストール(★ここが一番詰まりやすいポイント)
 
 1. Unity起動後、メニュー `NuGet > Manage NuGet Packages` を開く
-2. 検索窓に `MessagePack` と入力し、**MessagePack**(neuecc/MessagePack-CSharp)をインストール
-3. `Assets/Packages/MessagePack.x.x.x/` にDLLが展開されたことを確認
-   (`MessagePack.dll` と `MessagePack.Annotations.dll` が入っていればOK)
+2. **MessagePack**(neuecc/MessagePack-CSharp)を検索してインストール
+3. **Colyseus.NativeWebSocket**(endel/NativeWebSocket の現行2.x系、NuGet配布版)を検索してインストール
+   (以前のリビジョンではgitパッケージ版`com.endel.nativewebsocket`(1.x系)を使っていましたが、
+   `manifest.json`からは削除しました。NuGet版と共存すると型の重複が起きるため、NuGet版に一本化しています)
+4. `Assets/Packages/` に `MessagePack.x.x.x` と `Colyseus.NativeWebSocket.x.x.x` が展開されたことを確認
 
-これを行わないと、ライブラリの`PhantomCatWorks.RealtimeP2PKit.asmdef`が
-`precompiledReferences`でこの2つのDLLを名前参照しているため、**アセンブリ全体がコンパイルエラーになり、
-Demo側もEditorメニューも一切ロードされません。** Console に `MessagePack.dll` が見つからない旨の
-エラーが出ている場合は、まずここを疑ってください。
+**過去のバージョンで実際に起きていた不具合**: `PhantomCatWorks.RealtimeP2PKit.asmdef` に
+`"overrideReferences": true` を設定していたため、Unityの「プロジェクト内のDLLを自動参照する」
+デフォルト挙動が無効化され、明記した`MessagePack.dll`だけが参照されて`Newtonsoft.Json.dll`や
+NativeWebSocketのDLLが参照されない状態になっていました(Package自体は入っているのに
+`CS0246: The type or namespace name 'Newtonsoft' could not be found`のようなエラーになる不思議な現象は
+これが原因でした)。現在は`overrideReferences: false`に修正済みで、DLLを個別に指定しなくても
+自動参照されるようになっています。
 
 ### 2-3. コンパイルが通ることを確認
 
