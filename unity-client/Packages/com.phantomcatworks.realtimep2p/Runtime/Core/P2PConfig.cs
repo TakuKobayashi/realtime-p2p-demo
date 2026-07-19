@@ -11,13 +11,14 @@ namespace PhantomCatWorks.RealtimeP2PKit
     [CreateAssetMenu(menuName = "RealtimeP2PKit/P2P Config", fileName = "P2PConfig")]
     public class P2PConfig : ScriptableObject
     {
-        [Header("Matchmaking API (Hono / Cloudflare Workers)")]
-        public string MatchmakingApiBaseUrl = "https://matching-api.example.workers.dev";
-
-        [Header("Signaling (PartyKit)")]
-        [Tooltip("Host only, no scheme, e.g. your-project.your-user.partykit.dev")]
-        public string PartyKitHost = "your-project.your-user.partykit.dev";
-        public bool UseSecureWebSocket = true;
+        [Header("Server (Hono + partyserver, single Cloudflare Worker)")]
+        [Tooltip("Host only, no scheme, e.g. realtime-p2p-server.<your-account>.workers.dev " +
+                 "(or 127.0.0.1:8787 for `wrangler dev` / `pnpm dev` locally). " +
+                 "Matchmaking (REST) and signaling (WebSocket) both live on this one host - " +
+                 "see /server in the repo, a single wrangler deploy.")]
+        public string ServerHost = "realtime-p2p-server.example.workers.dev";
+        [Tooltip("On: https/wss (production). Off: http/ws (local `wrangler dev`).")]
+        public bool UseSecureConnection = true;
 
         [Header("ICE / STUN servers")]
         [Tooltip("Public STUN servers used for NAT traversal. No TURN server is configured, " +

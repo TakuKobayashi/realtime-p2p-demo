@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "realtime-p2p-server",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // --- Matching API (Hono) storage ---
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "realtime-p2p-db",
+      "database_id": "<YOUR_D1_DATABASE_ID>"
+    }
+  ],
+
+  // --- Signaling (PartyKit-style rooms via partyserver, running as Durable Objects
+  //     inside THIS SAME worker - no separate deployment) ---
+  "durable_objects": {
+    "bindings": [
+      { "name": "Lobby", "class_name": "Lobby" },
+      { "name": "Room", "class_name": "Room" }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["Lobby", "Room"]
+    }
+  ]
+}

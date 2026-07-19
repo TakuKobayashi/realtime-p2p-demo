@@ -7,9 +7,9 @@ using NativeWebSocket;
 namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
-    /// Signaling client for a PartyKit "room" party (see
-    /// /server/apps/signaling-party/party/room.ts). Relays WebRTC offer/answer/ICE
-    /// candidates between exactly two peers in a 1:1 room.
+    /// Signaling client for the "Room" party (a partyserver Durable Object, see
+    /// /server/src/party/room.ts). Relays WebRTC offer/answer/ICE candidates
+    /// between exactly two peers in a 1:1 room.
     /// Uses NativeWebSocket (github.com/endel/NativeWebSocket) for a cross-platform
     /// (Editor/Standalone/Mobile/WebGL) WebSocket implementation.
     /// </summary>
@@ -32,7 +32,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public async Task ConnectAsync(string roomId)
         {
             var scheme = _secure ? "wss" : "ws";
-            var url = $"{scheme}://{_host}/party/{roomId}";
+            var url = $"{scheme}://{_host}/parties/room/{roomId}";
             P2PLogger.Info($"[Signaling] connecting to room websocket: {url}");
 
             _ws = new WebSocket(url);

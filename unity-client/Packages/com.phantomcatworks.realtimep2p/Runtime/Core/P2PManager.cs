@@ -77,10 +77,12 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             _config = config;
             P2PLogger.Level = config.LogLevel;
-            P2PLogger.Info($"[P2PManager] initializing. matchmakingApi={config.MatchmakingApiBaseUrl} " +
-                            $"partyKitHost={config.PartyKitHost} logLevel={config.LogLevel}");
+            var scheme = config.UseSecureConnection ? "https" : "http";
+            var matchmakingBaseUrl = $"{scheme}://{config.ServerHost}";
+            P2PLogger.Info($"[P2PManager] initializing. serverHost={config.ServerHost} " +
+                            $"secure={config.UseSecureConnection} logLevel={config.LogLevel}");
 
-            _matchmakingClient = new HttpMatchmakingClient(config.MatchmakingApiBaseUrl);
+            _matchmakingClient = new HttpMatchmakingClient(matchmakingBaseUrl);
             _packetRouter = new PacketRouter(new MessagePackPayloadCodec());
 
             if (!_webRtcUpdateStarted)
@@ -118,7 +120,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
             // Listen on our own lobby room first, in case we end up waiting and get
             // matched later by another player's join request.
-            _lobbyListener = new LobbyListener(_config.PartyKitHost, _config.UseSecureWebSocket);
+            _lobbyListener = new LobbyListener(_config.ServerHost, _config.UseSecureConnection);
             _lobbyListener.Matched += OnLobbyMatched;
             await _lobbyListener.ConnectAsync(localPlayerId);
 
@@ -154,7 +156,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             Matched?.Invoke(Session);
 
             SetState(P2PSessionState.SignalingConnecting);
-            _signalingClient = new PartyKitSignalingClient(_config.PartyKitHost, _config.UseSecureWebSocket);
+            _signalingClient = new PartyKitSignalingClient(_config.ServerHost, _config.UseSecureConnection);
             _signalingClient.MessageReceived += OnSignalMessage;
             _signalingClient.Connected += OnSignalingConnected;
             _signalingClient.Disconnected += reason => P2PLogger.Warn($"[P2PManager] signaling disconnected: {reason}");

@@ -7,11 +7,11 @@ using NativeWebSocket;
 namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
-    /// Listens on this player's PartyKit "lobby" party (a per-player room, keyed by
-    /// playerId) for a push notification that a match was found while this player
-    /// was waiting in the matchmaking queue.
-    /// See /server/apps/signaling-party/party/lobby.ts and
-    /// /server/apps/matching-api/src/routes/matchmaking.ts (the fetch() push).
+    /// Listens on this player's "Lobby" party (a partyserver Durable Object, one
+    /// instance per playerId) for a push notification that a match was found
+    /// while this player was waiting in the matchmaking queue.
+    /// See /server/src/party/lobby.ts and
+    /// /server/src/routes/matchmaking.ts (the Durable Object fetch() push).
     /// </summary>
     public class LobbyListener : IDisposable
     {

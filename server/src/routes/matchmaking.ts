@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { and, asc, eq, ne } from "drizzle-orm";
 import { createDb } from "../db/client";
 import { queuePlayers } from "../db/schema";
-import type { Env } from "../index";
+import type { Env } from "../env";
 
 const matchmaking = new Hono<{ Bindings: Env }>();
 
@@ -13,14 +13,14 @@ const matchmaking = new Hono<{ Bindings: Env }>();
  *  - If this player is already matched (idempotent retry), return the existing match.
  *  - Otherwise look for another "waiting" player (oldest first).
  *    - Found  -> create a roomId, mark BOTH players "matched", push a "matched"
- *                websocket message to the OTHER player's PartyKit lobby room
- *                (since they already returned from their own request and are
- *                 just idly connected, waiting), and return the match to the
- *                caller directly in the HTTP response.
+ *                message straight into the OTHER player's Lobby Durable Object
+ *                (same worker - see env.Lobby.idFromName/.get/.fetch below,
+ *                 no separate signaling server to call out to), and return the
+ *                match to the caller directly in this HTTP response.
  *    - None   -> insert self as "waiting" and return { status: "waiting" }.
  *
  * The player who *triggers* the match (the second one to call /join) is set as
- * isInitiator=false and the player who was already waiting is isInitiator=true,
+ * isInitiator=false, and the player who was already waiting is isInitiator=true,
  * so exactly one side creates the WebRTC offer (avoids SDP glare).
  */
 matchmaking.post("/join", async (c) => {
@@ -78,18 +78,24 @@ matchmaking.post("/join", async (c) => {
       set: { status: "matched", roomId, opponentId: opponent.id },
     });
 
-  // Notify the opponent, who is no longer polling, via their PartyKit lobby room.
+  // Notify the opponent (who already returned from their own /join call and is
+  // just idly connected to their Lobby room) by calling the Durable Object
+  // directly - this is the SAME worker, so there's no second server involved.
+  const lobbyId = c.env.Lobby.idFromName(opponent.id);
+  const lobbyStub = c.env.Lobby.get(lobbyId);
   c.executionCtx.waitUntil(
-    fetch(`https://${c.env.PARTYKIT_HOST}/parties/lobby/${opponent.id}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        type: "matched",
-        roomId,
-        opponentId: playerId,
-        isInitiator: true,
-      }),
-    }).catch((err) => console.error("lobby push failed", err))
+    lobbyStub
+      .fetch("https://internal/push", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: "matched",
+          roomId,
+          opponentId: playerId,
+          isInitiator: true,
+        }),
+      })
+      .catch((err) => console.error("lobby push failed", err))
   );
 
   return c.json({ status: "matched", roomId, opponentId: opponent.id, isInitiator: false });

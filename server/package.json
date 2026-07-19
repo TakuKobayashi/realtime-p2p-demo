@@ -1,14 +1,24 @@
 {
   "name": "realtime-p2p-server",
   "private": true,
-  "packageManager": "pnpm@9.12.0",
   "scripts": {
-    "dev:api": "pnpm --filter matching-api dev",
-    "dev:party": "pnpm --filter signaling-party dev",
-    "deploy:api": "pnpm --filter matching-api deploy",
-    "deploy:party": "pnpm --filter signaling-party deploy",
-    "db:generate": "pnpm --filter matching-api db:generate",
-    "db:migrate:local": "pnpm --filter matching-api db:migrate:local",
-    "db:migrate:remote": "pnpm --filter matching-api db:migrate:remote"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply realtime-p2p-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply realtime-p2p-db --remote",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.36.4",
+    "hono": "^4.12.31",
+    "partyserver": "^0.5.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
+    "@types/node": "^22.20.1",
+    "drizzle-kit": "^0.28.1",
+    "typescript": "^5.9.3",
+    "wrangler": "^3.114.17"
   }
 }

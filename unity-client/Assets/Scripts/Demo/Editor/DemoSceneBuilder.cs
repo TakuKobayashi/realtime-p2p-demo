@@ -65,7 +65,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo.Editor
             EnsureFolder("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, "Assets/Scenes/P2PDemo.unity");
             Debug.Log("[DemoSceneBuilder] Built Assets/Scenes/P2PDemo.unity - " +
-                      "set MatchmakingApiBaseUrl / PartyKitHost on Assets/Resources/P2PConfig.asset before pressing Play.");
+                      "set ServerHost on Assets/Resources/P2PConfig.asset before pressing Play.");
         }
 
         private static void ApplyColor(GameObject go, Color color)
@@ -95,7 +95,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo.Editor
             var config = ScriptableObject.CreateInstance<P2PConfig>();
             AssetDatabase.CreateAsset(config, path);
             Debug.LogWarning("[DemoSceneBuilder] Created default P2PConfig.asset - " +
-                              "set MatchmakingApiBaseUrl and PartyKitHost to your deployed endpoints.");
+                              "set ServerHost to your deployed realtime-p2p-server endpoint.");
             return config;
         }
 

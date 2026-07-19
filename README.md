@@ -1,78 +1,171 @@
-# realtime-p2p demo (Unity + WebRTC + PartyKit + Cloudflare)
+# realtime-p2p demo (Unity + WebRTC + partyserver/Cloudflare)
 
 1対1リアルタイム対戦ゲームの実証実験。座標(xyz)をWebRTC DataChannel経由でP2P直接送信し、
-シグナリング/マッチングだけをサーバーレスなCloudflareスタックで行う構成です。
+マッチング/シグナリングは **1つのCloudflare Worker** で行う構成です。
 
 ```
-[Unity A]                                   [Unity B]
-   |  1. POST /api/matchmaking/join            |
-   |----------------> matching-api (Hono/D1) <-|
-   |                        |                  |
-   |   2. push "matched" via PartyKit lobby     |
-   |<-----------------------+                  |
-   |  3. connect to PartyKit "room" (signaling) |
-   |<===== SDP offer/answer, ICE candidates ===>|
-   |  4. WebRTC P2P DataChannel (STUNのみ, TURNなし)
-   |<========= MessagePack encoded xyz =========>|
+[Unity A]                                        [Unity B]
+   |  1. POST /api/matchmaking/join                  |
+   |------------------> realtime-p2p-server <--------|
+   |                (Hono + D1 + partyserver,         |
+   |                 ひとつの Cloudflare Worker)       |
+   |   2. Lobby Durable Object を直接呼び出してpush     |
+   |<--------------------------+                      |
+   |  3. wss://.../parties/room/{roomId} に接続(signaling)
+   |<===== SDP offer/answer, ICE candidates ==========>|
+   |  4. WebRTC P2P DataChannel (STUNのみ, TURNなし)     |
+   |<========= MessagePack encoded xyz ===============>|
 ```
 
-- **マッチング**: Hono (Cloudflare Workers) + Drizzle ORM + D1
-- **シグナリング**: PartyKit (WebSocket, Cloudflare Durable Objects上で動作)
+- **マッチング**: Hono + Drizzle ORM + D1
+- **シグナリング**: [partyserver](https://github.com/cloudflare/partykit/tree/main/packages/partyserver)
+  (Cloudflareが公式に配布している「PartyKitのDurable Object実装」。`Server`クラスを
+  Durable Objectとして同じWorkerにバインドするだけで、PartyKitと同じ`wss://.../parties/{party}/{room}`
+  というルーティング規約のWebSocketサーバーになります)
 - **P2P本体**: Unity (`com.unity.webrtc`) + MessagePack、STUNのみ・TURNなし直接P2P
-- **Unity側ライブラリ化**: `unity-client/Packages/com.phantomcatworks.realtimep2p`
-  (詳細はそのフォルダのREADME.md参照。他プロジェクトへ再利用可能)
+
+**重要**: matching-api(REST)とsignaling(WebSocket)は **同じ`wrangler.jsonc`・同じ`src/index.ts`・
+同じ`pnpm deploy`で1つのCloudflare Workerとしてデプロイされます**。以前のリビジョンでは
+PartyKit CLIで別ホストとしてデプロイする構成でしたが、それだと事実上サーバーが2つに分かれてしまうため、
+`partyserver`ライブラリを使って1Worker内のDurable Objectとして統合しました。
 
 ## ディレクトリ構成
 
 ```
-server/
-  apps/matching-api/      Hono + Drizzle + D1, Cloudflare Workersにデプロイ
-  apps/signaling-party/   PartyKit (lobby / room の2パーティ)
+server/                     単一のCloudflare Worker (Hono + Drizzle + D1 + partyserver)
+  src/
+    index.ts                fetchハンドラのエントリーポイント。Hono REST と
+                             partyserverのWebSocketルーティングをここで1本化
+    env.ts                  Bindings型 (DB, Lobby, Room)
+    routes/matchmaking.ts   POST /api/matchmaking/join, /leave, GET /status/:id
+    party/lobby.ts          Durable Object "Lobby" (1プレイヤーにつき1インスタンス)
+    party/room.ts           Durable Object "Room"  (1対戦につき1インスタンス、SDP/ICE中継)
+    db/schema.ts, db/client.ts
+  wrangler.jsonc             D1バインディング + Durable Objectバインディングを1ファイルに
+  migrations/                D1マイグレーション
+
 unity-client/
   Packages/com.phantomcatworks.realtimep2p/   再利用可能なP2Pライブラリ (UPM embedded package)
-  Assets/Scripts/Demo/                        ライブラリを使うデモゲーム側コード
-  Assets/Scripts/Demo/Editor/DemoSceneBuilder.cs  デモSceneをコード生成するメニュー
+                                               → 詳細なAPIリファレンスは同フォルダのREADME.md
+  Assets/Scripts/Demo/                        ライブラリを使うサンプルコード(Scene/Prefabは未同梱、後述)
 ```
 
-## セットアップ
-
-### 1. サーバー (server/)
+## 1. サーバーのセットアップ
 
 ```bash
 cd server
-pnpm install
+pnpm install   # または npm install
 
-# --- signaling-party (PartyKit) を先にデプロイしてホスト名を確定させる ---
-pnpm --filter signaling-party exec partykit login
-pnpm deploy:party
-# => https://signaling-party.<your-partykit-user>.partykit.dev が発行される
+# D1データベースを作成
+npx wrangler d1 create realtime-p2p-db
+# 出力された database_id を wrangler.jsonc の d1_databases[0].database_id に反映
 
-# --- matching-api (Cloudflare Workers + D1) ---
-pnpm --filter matching-api exec wrangler d1 create realtime-p2p-db
-# 出力された database_id を apps/matching-api/wrangler.jsonc に反映
-# vars.PARTYKIT_HOST に上記PartyKitホスト名(スキームなし)を設定
-
-pnpm db:migrate:remote
-pnpm deploy:api
-# => https://matching-api.<your-account>.workers.dev が発行される
+pnpm db:migrate:remote     # 本番D1にマイグレーション適用
+pnpm deploy                # 1コマンドで matching-api + signaling を同時デプロイ
+# => https://realtime-p2p-server.<your-account>.workers.dev が発行される
 ```
 
-ローカル開発は `pnpm dev:api` / `pnpm dev:party` (別ターミナルで両方起動)。
-`pnpm db:migrate:local` でローカルD1にもマイグレーションを当ててください。
+ローカル開発:
 
-### 2. Unity (unity-client/)
+```bash
+pnpm db:migrate:local
+pnpm dev        # wrangler dev、REST APIもWebSocketも同じ http://127.0.0.1:8787 で動く
+```
 
-1. Unity Hubで `unity-client/` を開く(Unity 2022.3 LTS以降、URP推奨)
-2. **NuGetForUnity** は `Packages/manifest.json` に既に登録済み。Unity起動後、
-   メニュー `NuGet > Manage NuGet Packages` から **MessagePack** を検索してインストール
-   (`Assets/Packages/MessagePack.x.x.x/` にDLLが展開されます)
-3. `com.unity.webrtc` はネイティブプラグインのため、初回インポート後にUnity再起動を推奨
-4. `Assets/Resources/P2PConfig.asset` を作成 (未作成ならメニュー実行時に自動生成されます) し、
-   - `MatchmakingApiBaseUrl` = 上記でデプロイした matching-api の URL
-   - `PartyKitHost` = 上記でデプロイした signaling-party のホスト名(スキームなし)
-   を設定
-5. メニュー `RealtimeP2PKit > Build Demo Scene` を実行 → `Assets/Scenes/P2PDemo.unity` が生成されます
-6. 実機/2台のエディタ(ParrelSyncやビルド2本)でSceneを再生し、2人がキューに入るとP2P接続が始まります
+`wrangler dev`実行中は、Unity側の`P2PConfig.ServerHost`を`127.0.0.1:8787`、
+`UseSecureConnection`を`false`(http/ws)にすれば手元だけで疎通確認できます。
+
+## 2. Unity のセットアップ
+
+**この順番を必ず守ってください。** 順番を間違えると(特にMessagePackを後回しにすると)
+ライブラリのコードがコンパイルエラーになり、`RealtimeP2PKit`メニュー自体が出てこなくなります。
+
+### 2-1. Unityで`unity-client/`を開く
+
+Unity 6000.3系(Unity 6 LTS相当)で作成しています。`Packages/manifest.json`に依存パッケージ
+(`com.unity.webrtc`, `com.unity.nuget.newtonsoft-json`, NativeWebSocket, NuGetForUnity, 本ライブラリ)
+は既に登録済みなので、Unity Hubで開けば自動的に解決されます(初回はダウンロードに数分かかります)。
+
+> **⚠️ com.unity.webrtc の既知の注意点**: Unity公式discussionsで、Unity 6000.4以降では
+> `com.unity.webrtc`が非推奨化されて動作しないと報告されています
+> (https://discussions.unity.com/t/is-com-unity-webrtc-still-supported/1718939)。
+> 現状Unity 6000.3系では動作しますが、Unityのバージョンを上げる際はこの点にご注意ください。
+
+### 2-2. MessagePackをNuGetForUnityでインストール(★ここが一番詰まりやすいポイント)
+
+1. Unity起動後、メニュー `NuGet > Manage NuGet Packages` を開く
+2. 検索窓に `MessagePack` と入力し、**MessagePack**(neuecc/MessagePack-CSharp)をインストール
+3. `Assets/Packages/MessagePack.x.x.x/` にDLLが展開されたことを確認
+   (`MessagePack.dll` と `MessagePack.Annotations.dll` が入っていればOK)
+
+これを行わないと、ライブラリの`PhantomCatWorks.RealtimeP2PKit.asmdef`が
+`precompiledReferences`でこの2つのDLLを名前参照しているため、**アセンブリ全体がコンパイルエラーになり、
+Demo側もEditorメニューも一切ロードされません。** Console に `MessagePack.dll` が見つからない旨の
+エラーが出ている場合は、まずここを疑ってください。
+
+### 2-3. コンパイルが通ることを確認
+
+Unityの Console にエラーが出ていない状態が正常です。エラーが残っている場合は
+`Assets > Reimport All` や Unity再起動で解消することがあります(NuGetForUnityの新規DLL認識のため)。
+
+### 2-4. デモSceneを生成する
+
+このリポジトリには **`.unity`シーンや`.prefab`は同梱していません**(バイナリ/YAMLの生成物を
+手で編集するのは壊れやすいため、コードから再現できるようにしています)。
+メニュー `RealtimeP2PKit > Build Demo Scene` を実行すると、以下が自動生成されます:
+
+- `Assets/Scenes/P2PDemo.unity`
+- `Assets/Prefabs/LocalPlayer.prefab`, `Assets/Prefabs/RemotePlayer.prefab`
+- `Assets/Resources/P2PConfig.asset`(未作成の場合)
+
+生成後、`Assets/Resources/P2PConfig.asset` を選択し、Inspectorで **`Server Host`** に
+上でデプロイしたWorkerのホスト名(`https://`なしのホスト名のみ、例:
+`realtime-p2p-server.<your-account>.workers.dev`)を設定してください。
+
+自分でSceneを組む場合は、README末尾の「手動でSceneを組む場合」を参照してください
+(`Build Demo Scene`が生成する内容と同じものを手作業で再現する手順です)。
+
+### 2-5. 実行して動作確認
+
+2台の実機、または `ParrelSync` 等で複製した2つのUnityエディタで `P2PDemo` シーンを再生します。
+2人がキューに入ると自動的にマッチングし、WebRTC接続が確立してcubeが同期し始めます。
+Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出るので、`P2PConfig.LogLevel`を
+`Info`にしておくと接続フローを追いやすいです(`Verbose`にすると送受信データの中身まで出ます)。
+
+## ライブラリの使い方(クイックスタート・APIリファレンス)
+
+`unity-client/Packages/com.phantomcatworks.realtimep2p` の使い方は、詳細を
+**同フォルダの README.md** に集約しています。最短の使い方は次の5行です:
+
+```csharp
+P2PManager.Instance.Initialize(myConfig);
+P2PManager.Instance.RegisterPacketHandler<MyPacket>(1, packet => { ... });
+P2PManager.Instance.DataChannelReady += () => { /* 対戦開始 */ };
+P2PManager.Instance.StartMatchmaking(myPlayerId);
+P2PManager.Instance.Send(1, new MyPacket { ... });
+```
+
+## 手動でSceneを組む場合
+
+`RealtimeP2PKit > Build Demo Scene` を使わず自分でSceneを構築する場合、必要なGameObjectは
+以下の3つだけです(いずれも空のSceneに配置):
+
+1. **`DemoBootstrap`** という名前のGameObjectを作成し、`DemoBootstrap`コンポーネントを追加。
+   Inspectorで以下を割り当てる:
+   - `Config` : `P2PConfig`アセット(`Assets > Create > RealtimeP2PKit > P2P Config`で作成し、
+     `Server Host`にデプロイ済みWorkerのホスト名を設定)
+   - `Local Player Prefab` : `DemoPlayerController`コンポーネントを付けたCubeのPrefab
+   - `Remote Player Prefab` : 何もスクリプトを付けていないCubeのPrefab
+     (`DemoRemotePlayerSync`は`DemoBootstrap`が実行時に自動でAddComponentします)
+2. カメラとライトは通常のSceneと同様(`Main Camera` + `Directional Light`)。
+3. 床は任意(Plane等、見た目のためだけ)。
+
+Play再生すると`DemoBootstrap.Start()`がランダムなplayerIdでマッチングを開始し、
+対戦相手が見つかり次第、自動で2体のCubeをInstantiateしてP2P同期を開始します
+(`Assets/Scripts/Demo/DemoBootstrap.cs`の中身がそのままロジックです)。
+
+自作ゲームに組み込む場合は`DemoBootstrap`をそのまま参考にしつつ、`P2PManager.Instance`を
+直接呼び出すのが一番シンプルです(パッケージ側READMEのAPIリファレンス参照)。
 
 ## 既知の制約・注意点
 
@@ -81,16 +174,16 @@ pnpm deploy:api
 - **STUNサーバー**: `stun.l.google.com:19302` 等のGoogleの公開STUNは広く使われていますが、
   Googleが公式にドキュメント化・SLA保証しているサービスではないため、将来的に制限される
   可能性があります。`P2PConfig.StunServerUrls` は配列なので複数フォールバックを設定できます。
+- **com.unity.webrtc の非推奨化**: 上記の通り、Unity 6000.4以降で動作しないという報告があります。
 - **MessagePack + IL2CPP**: デフォルトの動的コード生成はIL2CPP/AOTビルドで動作しません。
   実機ビルドを行う場合は `mpc` (MessagePack Code Generator) で事前コード生成し、
   `MessagePackPayloadCodec` に生成された `GeneratedResolver` を渡してください。
 - **D1のマッチング整合性**: デモ用の簡易実装のため、同時に大量の join が来た場合の
-  完全な原子性は保証していません(SQLiteの単一ライター特性である程度緩和されますが、
-  本番運用ではDurable Object等でのロックを検討してください)。
+  完全な原子性は保証していません。本番運用ではDurable Object等でのロックを検討してください。
 
 ## ライブラリの再利用について
 
 `unity-client/Packages/com.phantomcatworks.realtimep2p` はWebRTC接続〜データ交換の流れを
 汎用化した独立パッケージです。エントリーポイントは `P2PManager` シングルトンのみで、
 マッチング/シグナリング/WebRTC/シリアライズの各層はインターフェース越しに差し替え可能です。
-詳細は同フォルダの README.md を参照してください。
+詳細・全メソッドのリファレンスは同フォルダの README.md を参照してください。

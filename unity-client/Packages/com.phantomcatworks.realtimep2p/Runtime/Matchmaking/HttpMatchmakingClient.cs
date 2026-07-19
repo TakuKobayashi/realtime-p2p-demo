@@ -8,7 +8,8 @@ namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
     /// Matchmaking client for the Hono-based "matching-api" worker
-    /// (see /server/apps/matching-api). Endpoints:
+    /// (see /server, the same worker that also hosts the Lobby/Room signaling
+    /// Durable Objects). Endpoints:
     ///   POST {baseUrl}/api/matchmaking/join  { playerId } -> MatchmakingResult
     ///   POST {baseUrl}/api/matchmaking/leave { playerId }
     /// </summary>
