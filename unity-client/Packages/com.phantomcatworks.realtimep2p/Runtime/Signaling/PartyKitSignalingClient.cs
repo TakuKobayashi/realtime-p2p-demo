@@ -19,27 +19,28 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public event Action<string> Disconnected;
         public event Action<RoomSignalEnvelope> MessageReceived;
 
-        private readonly string _host;
-        private readonly bool _secure;
+        private readonly string _baseWsUrl;
+        private string _url;
         private WebSocket _ws;
 
-        public PartyKitSignalingClient(string host, bool secure = true)
+        /// <param name="baseWsUrl">e.g. "ws://localhost:8787" or "wss://realtime-p2p-server.example.workers.dev"
+        /// (see P2PEndpoints.GetSignalingWebSocketUrl()). "/parties/room/{roomId}" is appended.</param>
+        public PartyKitSignalingClient(string baseWsUrl)
         {
-            _host = host;
-            _secure = secure;
+            _baseWsUrl = baseWsUrl.TrimEnd('/');
         }
 
         public async Task ConnectAsync(string roomId)
         {
-            var scheme = _secure ? "wss" : "ws";
-            var url = $"{scheme}://{_host}/parties/room/{roomId}";
-            P2PLogger.Info($"[Signaling] connecting to room websocket: {url}");
+            _url = $"{_baseWsUrl}/parties/room/{roomId}";
+            P2PLogger.Info($"[Signaling] connecting to room websocket: {_url}");
 
-            _ws = new WebSocket(url);
+            _ws = new WebSocket(_url);
 
             _ws.OnOpen += () =>
             {
                 P2PLogger.Info("[Signaling] websocket OPEN");
+                P2PNetworkLogger.LogWebSocketOpen("Room", _url);
                 Connected?.Invoke();
             };
 
@@ -48,13 +49,14 @@ namespace PhantomCatWorks.RealtimeP2PKit
             _ws.OnClose += code =>
             {
                 P2PLogger.Warn($"[Signaling] websocket CLOSED code={code}");
+                P2PNetworkLogger.LogWebSocketClose("Room", _url, code.ToString());
                 Disconnected?.Invoke(code.ToString());
             };
 
             _ws.OnMessage += bytes =>
             {
                 var json = Encoding.UTF8.GetString(bytes);
-                P2PLogger.Verbose($"[Signaling] <= {json}");
+                P2PNetworkLogger.LogWebSocketReceive("Room", json);
                 try
                 {
                     var envelope = JsonConvert.DeserializeObject<RoomSignalEnvelope>(json);
@@ -77,7 +79,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
                 return;
             }
             var json = JsonConvert.SerializeObject(message);
-            P2PLogger.Verbose($"[Signaling] => {json}");
+            P2PNetworkLogger.LogWebSocketSend("Room", json);
             _ = _ws.SendText(json);
         }
 

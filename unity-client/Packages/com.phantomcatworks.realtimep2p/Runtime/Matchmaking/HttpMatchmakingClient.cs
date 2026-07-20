@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -26,10 +27,9 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             var url = $"{_baseUrl}/api/matchmaking/join";
             var body = JsonConvert.SerializeObject(new MatchmakingJoinRequest { playerId = playerId });
-            P2PLogger.Info($"[Matchmaking] POST {url} body={body}");
+            P2PLogger.Info($"[Matchmaking] POST {url}");
 
-            var responseText = await PostJsonAsync(url, body);
-            P2PLogger.Verbose($"[Matchmaking] response={responseText}");
+            var responseText = await PostJsonAsync("POST", url, body);
 
             var result = JsonConvert.DeserializeObject<MatchmakingResult>(responseText);
             P2PLogger.Info($"[Matchmaking] status={result.status} roomId={result.roomId} " +
@@ -44,7 +44,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             P2PLogger.Info($"[Matchmaking] POST {url} (leave)");
             try
             {
-                await PostJsonAsync(url, body);
+                await PostJsonAsync("POST", url, body);
                 P2PLogger.Info("[Matchmaking] left queue");
             }
             catch (Exception ex)
@@ -53,9 +53,12 @@ namespace PhantomCatWorks.RealtimeP2PKit
             }
         }
 
-        private static async Task<string> PostJsonAsync(string url, string jsonBody)
+        private static async Task<string> PostJsonAsync(string method, string url, string jsonBody)
         {
-            using var req = new UnityWebRequest(url, "POST");
+            P2PNetworkLogger.LogHttpRequest(method, url, jsonBody);
+            var stopwatch = Stopwatch.StartNew();
+
+            using var req = new UnityWebRequest(url, method);
             var bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
             req.uploadHandler = new UploadHandlerRaw(bodyRaw);
             req.downloadHandler = new DownloadHandlerBuffer();
@@ -63,8 +66,13 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
             var op = req.SendWebRequest();
             while (!op.isDone) await Task.Yield();
+            stopwatch.Stop();
 
-            if (req.result != UnityWebRequest.Result.Success)
+            var isError = req.result != UnityWebRequest.Result.Success;
+            P2PNetworkLogger.LogHttpResponse(method, url, req.responseCode, isError,
+                req.downloadHandler?.text, stopwatch.Elapsed);
+
+            if (isError)
             {
                 P2PLogger.Error($"[Matchmaking] request failed: {req.error} (HTTP {req.responseCode}) url={url}");
                 throw new Exception($"Matchmaking request failed: {req.error}");

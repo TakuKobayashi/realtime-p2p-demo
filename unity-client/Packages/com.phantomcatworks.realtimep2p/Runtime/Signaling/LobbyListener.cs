@@ -17,30 +17,38 @@ namespace PhantomCatWorks.RealtimeP2PKit
     {
         public event Action<LobbyMatchedMessage> Matched;
 
-        private readonly string _host;
-        private readonly bool _secure;
+        private readonly string _baseWsUrl;
+        private string _url;
         private WebSocket _ws;
 
-        public LobbyListener(string host, bool secure = true)
+        /// <param name="baseWsUrl">e.g. "ws://localhost:8787" or "wss://realtime-p2p-server.example.workers.dev"
+        /// (see P2PEndpoints.GetSignalingWebSocketUrl()). "/parties/lobby/{playerId}" is appended.</param>
+        public LobbyListener(string baseWsUrl)
         {
-            _host = host;
-            _secure = secure;
+            _baseWsUrl = baseWsUrl.TrimEnd('/');
         }
 
         public async Task ConnectAsync(string playerId)
         {
-            var scheme = _secure ? "wss" : "ws";
-            var url = $"{scheme}://{_host}/parties/lobby/{playerId}";
-            P2PLogger.Info($"[Lobby] connecting: {url}");
+            _url = $"{_baseWsUrl}/parties/lobby/{playerId}";
+            P2PLogger.Info($"[Lobby] connecting: {_url}");
 
-            _ws = new WebSocket(url);
-            _ws.OnOpen += () => P2PLogger.Info("[Lobby] websocket OPEN, waiting for match...");
+            _ws = new WebSocket(_url);
+            _ws.OnOpen += () =>
+            {
+                P2PLogger.Info("[Lobby] websocket OPEN, waiting for match...");
+                P2PNetworkLogger.LogWebSocketOpen("Lobby", _url);
+            };
             _ws.OnError += err => P2PLogger.Error($"[Lobby] websocket error: {err}");
-            _ws.OnClose += code => P2PLogger.Info($"[Lobby] websocket closed code={code}");
+            _ws.OnClose += code =>
+            {
+                P2PLogger.Info($"[Lobby] websocket closed code={code}");
+                P2PNetworkLogger.LogWebSocketClose("Lobby", _url, code.ToString());
+            };
             _ws.OnMessage += bytes =>
             {
                 var json = Encoding.UTF8.GetString(bytes);
-                P2PLogger.Verbose($"[Lobby] <= {json}");
+                P2PNetworkLogger.LogWebSocketReceive("Lobby", json);
                 try
                 {
                     var msg = JsonConvert.DeserializeObject<LobbyMatchedMessage>(json);

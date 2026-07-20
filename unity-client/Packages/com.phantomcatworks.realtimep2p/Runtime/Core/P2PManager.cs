@@ -77,10 +77,10 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             _config = config;
             P2PLogger.Level = config.LogLevel;
-            var scheme = config.UseSecureConnection ? "https" : "http";
-            var matchmakingBaseUrl = $"{scheme}://{config.ServerHost}";
-            P2PLogger.Info($"[P2PManager] initializing. serverHost={config.ServerHost} " +
-                            $"secure={config.UseSecureConnection} logLevel={config.LogLevel}");
+            var matchmakingBaseUrl = P2PEndpoints.GetMatchmakingApiUrl();
+            P2PLogger.Info($"[P2PManager] initializing. environment={P2PEndpoints.GetCurrentEnvironment()} " +
+                            $"matchmakingApiUrl={matchmakingBaseUrl} " +
+                            $"signalingWebSocketUrl={P2PEndpoints.GetSignalingWebSocketUrl()} logLevel={config.LogLevel}");
 
             _matchmakingClient = new HttpMatchmakingClient(matchmakingBaseUrl);
             _packetRouter = new PacketRouter(new MessagePackPayloadCodec());
@@ -120,7 +120,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
             // Listen on our own lobby room first, in case we end up waiting and get
             // matched later by another player's join request.
-            _lobbyListener = new LobbyListener(_config.ServerHost, _config.UseSecureConnection);
+            _lobbyListener = new LobbyListener(P2PEndpoints.GetSignalingWebSocketUrl());
             _lobbyListener.Matched += OnLobbyMatched;
             await _lobbyListener.ConnectAsync(localPlayerId);
 
@@ -156,7 +156,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             Matched?.Invoke(Session);
 
             SetState(P2PSessionState.SignalingConnecting);
-            _signalingClient = new PartyKitSignalingClient(_config.ServerHost, _config.UseSecureConnection);
+            _signalingClient = new PartyKitSignalingClient(P2PEndpoints.GetSignalingWebSocketUrl());
             _signalingClient.MessageReceived += OnSignalMessage;
             _signalingClient.Connected += OnSignalingConnected;
             _signalingClient.Disconnected += reason => P2PLogger.Warn($"[P2PManager] signaling disconnected: {reason}");
@@ -168,7 +168,8 @@ namespace PhantomCatWorks.RealtimeP2PKit
             SetState(P2PSessionState.Negotiating);
             P2PLogger.Info($"[P2PManager] signaling connected, starting WebRTC negotiation (isInitiator={Session.IsInitiator})");
 
-            _peerConnection = new WebRtcPeerConnection(this, _config);
+            var stunServerUrls = P2PEndpoints.GetStunServerUrls();
+            _peerConnection = new WebRtcPeerConnection(this, _config, stunServerUrls);
             _peerConnection.Initialize(Session.IsInitiator);
 
             _peerConnection.LocalIceCandidateGathered += candidate => _signalingClient.Send(new RoomSignalEnvelope

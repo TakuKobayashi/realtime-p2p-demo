@@ -25,26 +25,29 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
         private readonly MonoBehaviour _coroutineRunner;
         private readonly P2PConfig _config;
+        private readonly System.Collections.Generic.List<string> _stunServerUrls;
         private RTCPeerConnection _pc;
         private RTCDataChannel _dataChannel;
 
         public RTCPeerConnectionState State => _pc?.ConnectionState ?? RTCPeerConnectionState.New;
 
-        public WebRtcPeerConnection(MonoBehaviour coroutineRunner, P2PConfig config)
+        /// <param name="stunServerUrls">See P2PEndpoints.GetStunServerUrls().</param>
+        public WebRtcPeerConnection(MonoBehaviour coroutineRunner, P2PConfig config, System.Collections.Generic.List<string> stunServerUrls)
         {
             _coroutineRunner = coroutineRunner;
             _config = config;
+            _stunServerUrls = stunServerUrls;
         }
 
         public void Initialize(bool isInitiator)
         {
             var rtcConfig = new RTCConfiguration
             {
-                iceServers = new[] { new RTCIceServer { urls = _config.StunServerUrls } }
+                iceServers = new[] { new RTCIceServer { urls = _stunServerUrls.ToArray() } }
             };
 
             P2PLogger.Info($"[WebRTC] creating RTCPeerConnection isInitiator={isInitiator} " +
-                            $"stunServers=[{string.Join(", ", _config.StunServerUrls)}]");
+                            $"stunServers=[{string.Join(", ", _stunServerUrls)}]");
             _pc = new RTCPeerConnection(ref rtcConfig);
 
             _pc.OnIceCandidate = candidate =>
@@ -98,7 +101,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             };
             channel.OnMessage = bytes =>
             {
-                P2PLogger.Verbose($"[WebRTC] data channel received {P2PLogger.ToHexPreview(bytes)}");
+                P2PNetworkLogger.LogWebRtcReceive(bytes);
                 DataReceived?.Invoke(bytes);
             };
         }
@@ -176,7 +179,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
                 P2PLogger.Warn("[WebRTC] cannot send, data channel not open");
                 return;
             }
-            P2PLogger.Verbose($"[WebRTC] sending {P2PLogger.ToHexPreview(payload)}");
+            P2PNetworkLogger.LogWebRtcSend(payload);
             _dataChannel.Send(payload);
         }
 

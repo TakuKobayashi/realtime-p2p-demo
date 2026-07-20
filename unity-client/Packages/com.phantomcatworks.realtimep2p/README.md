@@ -16,12 +16,13 @@
 3. [APIリファレンス](#apiリファレンス)
    - [P2PManager](#p2pmanager-シングルトンエントリーポイント)
    - [P2PConfig](#p2pconfig-scriptableobject)
+   - [P2PEndpoints / P2PEnvironment(接続先のLocal/Remote切り替え)](#p2pendpoints--p2penvironment接続先のlocalremote切り替え)
    - [P2PSessionInfo / P2PSessionState](#p2psessioninfo--p2psessionstate)
    - [PacketRouter](#packetrouter内部で自動的に使われる)
    - [IPayloadCodec / MessagePackPayloadCodec](#ipayloadcodec--messagepackpayloadcodec)
    - [IMatchmakingClient / HttpMatchmakingClient](#imatchmakingclient--httpmatchmakingclient)
    - [ISignalingClient / PartyKitSignalingClient / LobbyListener](#isignalingclient--partykitsignalingclient--lobbylistener)
-   - [P2PLogger](#p2plogger)
+   - [P2PLogger / P2PNetworkLogger](#p2plogger--p2pnetworklogger)
 4. [自前のパケット型を追加する](#自前のパケット型を追加する)
 5. [差し替え可能なポイント(拡張方法)](#差し替え可能なポイント拡張方法)
 6. [他プロジェクトへの持ち出し方](#他プロジェクトへの持ち出し方)
@@ -85,6 +86,11 @@ public class MyGameEntry : MonoBehaviour
 
 これで「マッチング → シグナリング → WebRTC接続 → MessagePackでのデータ送受信」まで
 すべて動きます。以降のセクションは、この5ステップそれぞれの詳細な仕様です。
+
+> **接続先URL(サーバーのアドレス)は`P2PConfig`アセットには含まれません。** Unity Editorのメニュー
+> `RealtimeP2PKit > Connection Settings` で Local/Remote を切り替えます(下記
+> [P2PEndpoints / P2PEnvironment](#p2pendpoints--p2penvironment接続先のlocalremote切り替え) 参照)。
+> ビルドしたアプリは常にハードコードされたRemoteの値を使うので、Editorでの設定作業は不要です。
 
 ---
 
@@ -168,16 +174,49 @@ Send<T>() / RegisterPacketHandler<T>() でゲームデータを送受信
 ### `P2PConfig` (ScriptableObject)
 
 `Assets > Create > RealtimeP2PKit > P2P Config` から作成するアセット。`P2PManager.Initialize()`に渡します。
+**接続先URL(Web API / Signaling WebSocket / STUN)はここには含まれません** - `P2PEndpoints`(次項)を参照してください。
 
 | フィールド | 型 | 説明 |
 |---|---|---|
-| `ServerHost` | `string` | ホスト名のみ、スキームなし。例: `realtime-p2p-server.example.workers.dev` または `127.0.0.1:8787`(ローカル開発)。REST(マッチング)とWebSocket(シグナリング)は両方この1ホストに対して行われます。 |
-| `UseSecureConnection` | `bool` | `true`なら`https`/`wss`、`false`なら`http`/`ws`。ローカルの`wrangler dev`に繋ぐときは`false`にします。 |
-| `StunServerUrls` | `string[]` | ICE用STUNサーバーのURL配列(`stun:`プレフィックス付き)。複数指定してフォールバックできます。TURNは意図的に未サポートです。 |
 | `DataChannelLabel` | `string` | WebRTCデータチャンネルのラベル名。通常は変更不要。 |
 | `Reliable` | `bool` | `true`=順序保証・再送あり(TCPライク、ロス時に遅延が出る)。`false`(推奨)=順序保証なし・即座に送りっぱなし。座標同期のような頻繁な状態送信には`false`を推奨。 |
 | `MaxRetransmits` | `int` | `Reliable=false`のときのみ有効。再送回数の上限(`0`=再送なし)。 |
-| `LogLevel` | `P2PLogLevel` | `None` / `Error` / `Warn` / `Info` / `Verbose`。開発中は`Verbose`、本番は`Info`以下推奨。 |
+| `LogLevel` | `P2PLogLevel` | `None` / `Error` / `Warn` / `Info` / `Verbose`。開発中は`Verbose`、本番は`Info`以下推奨。`P2PLogger`(接続フローのログ)にのみ影響し、`P2PNetworkLogger`(生データのログ)には影響しません。 |
+
+---
+
+### `P2PEndpoints` / `P2PEnvironment`(接続先のLocal/Remote切り替え)
+
+接続先URLを解決する静的クラスです。`P2PManager`が内部で自動的に呼び出すため、
+通常ゲーム側のコードから直接呼ぶ必要はありませんが、仕組みを理解しておくと設定ミスに気づきやすくなります。
+
+```csharp
+public enum P2PEnvironment { Local, Remote }
+
+public static class P2PEndpoints
+{
+    public static P2PEnvironment GetCurrentEnvironment();
+    public static string GetMatchmakingApiUrl();
+    public static string GetSignalingWebSocketUrl();
+    public static List<string> GetStunServerUrls(); // 上から順に使用される
+}
+```
+
+**挙動がUnity Editorとビルドで異なります**:
+
+- **Unity Editor上**: メニュー `RealtimeP2PKit > Connection Settings` で設定した値(PlayerPrefsに保存)
+  が`GetCurrentEnvironment()`の値(`Local`/`Remote`)に応じて返されます。
+- **ビルドしたアプリ(Editor外)**: `GetCurrentEnvironment()`は常に`Remote`を返し、各`Get*Url()`も
+  PlayerPrefsを一切参照せず、`P2PEndpoints.cs`にハードコードされた`DefaultRemote*`定数を直接返します。
+  本番のURLを変えるには、Editorの画面ではなく`P2PEndpoints.cs`の`DefaultRemote*`定数を書き換えて
+  コミットする必要があります。
+
+STUNサーバーは複数指定した場合、上から順に(実際にはWebRTCが全件からICE候補を収集する形で)使われます。
+既定値はGoogleとMozillaの公開STUNです。
+
+接続設定Editorウィンドウ(`P2PConnectionSettingsWindow`、`Editor/`フォルダ)は、この`P2PEndpoints`の
+PlayerPrefsキーを読み書きするだけの薄いUIです。ゲーム固有のEditorツールを自作する場合も、
+同じPlayerPrefsキー(`P2PEndpoints.PrefKey*`定数)を使えば設定を共有できます。
 
 ---
 
@@ -244,7 +283,8 @@ public interface IMatchmakingClient
 ```
 
 `HttpMatchmakingClient`はサーバーの`POST /api/matchmaking/join`・`/leave`を叩く実装です。
-`P2PManager.Initialize()`が`P2PConfig.ServerHost`から自動生成するため、通常は自分でnewする必要はありません。
+`P2PManager.Initialize()`が`P2PEndpoints.GetMatchmakingApiUrl()`の値で自動生成するため、
+通常は自分でnewする必要はありません。
 
 `MatchmakingResult`:
 
@@ -264,14 +304,17 @@ public class MatchmakingResult
 
 WebRTCのSDP/ICE交換に使うシグナリング層です。`ISignalingClient`を実装すれば別のバックエンドに差し替えられます。
 
-- `PartyKitSignalingClient`: `wss://{ServerHost}/parties/room/{roomId}` に接続し、offer/answer/ice-candidateを中継してもらいます。
-- `LobbyListener`: `wss://{ServerHost}/parties/lobby/{playerId}` に接続し、マッチング成立のpush通知を待ちます。
+- `PartyKitSignalingClient`: `{P2PEndpoints.GetSignalingWebSocketUrl()}/parties/room/{roomId}` に接続し、offer/answer/ice-candidateを中継してもらいます。
+- `LobbyListener`: `{P2PEndpoints.GetSignalingWebSocketUrl()}/parties/lobby/{playerId}` に接続し、マッチング成立のpush通知を待ちます。
 
 いずれも`P2PManager`が内部で生成・破棄するため、通常は直接使いません。
 
 ---
 
-### `P2PLogger`
+### `P2PLogger` / `P2PNetworkLogger`
+
+`P2PLogger`は接続フロー(状態遷移・matched・offer/answer/ICE交換・DataChannel open/close等)の
+ログです。`P2PConfig.LogLevel`が`P2PManager.Initialize()`時に自動反映されます。
 
 ```csharp
 public static class P2PLogger
@@ -284,8 +327,31 @@ public static class P2PLogger
 }
 ```
 
-`P2PConfig.LogLevel`が`P2PManager.Initialize()`時に自動反映されます。ゲーム側から独自ログを
-同じ書式で出したい場合に直接呼んでも構いません。
+すべてのログが実際には`P2PLogger`内の1箇所からDebug.Logされるため、Unityコンソールで
+ログ行をダブルクリックしても常に`P2PLogger.cs`にジャンプしてしまいます(呼び出し元には飛びません)。
+そのため各メソッドは`[CallerMemberName]`等を使って **呼び出し元のクラス名・メソッド名・行番号を
+自動的にログ本文の先頭に埋め込みます**(例: `[RealtimeP2PKit][P2PManager.OnSignalMessage:210][Info] ...`)。
+ゲーム側から`P2PLogger.Info(...)`等を直接呼んでも同じ書式で自動的にタグが付きます。
+`Error()`はさらに呼び出し元チェーンのスタックトレースをログ本文に追記します。
+
+---
+
+`P2PNetworkLogger`はHTTP/WebSocket/WebRTC DataChannelの**生の送受信内容**専用のロガーです。
+`P2PLogger.LogLevel`とは独立した、単一のON/OFFトグルで制御されます。
+
+```csharp
+public static class P2PNetworkLogger
+{
+    public static bool IsEnabled { get; set; } // Editor限定。ビルドでは常にfalseで、setも無視される
+}
+```
+
+- **切り替え方法**: `RealtimeP2PKit > Connection Settings` の "Network Logging" トグル
+  (PlayerPrefsキー: `P2PNetworkLogger.PrefKeyEnabled`)。
+- **Unity Editor上でのみ**ON/OFFを切り替えられます。ビルドしたアプリでは`IsEnabled`は常に`false`を
+  返し(`set`も無視されます)、そもそもこの機能に対応するUIも存在しません。
+- ONの間、HTTPリクエスト/レスポンス(RTT・サイズ・失敗時は赤字)、WebSocketの送受信メッセージ全文、
+  WebRTC DataChannelの送受信バイト列(16進プレビュー)がすべてログに出力されます。
 
 ---
 
@@ -358,3 +424,4 @@ P2PManager.Instance.Send(AttackPacketId, new AttackPacket { SkillId = 3, Power =
 | マッチングは成立するが接続しない | 両者が対称NAT(symmetric NAT)配下の可能性。本ライブラリはTURN未使用のため、既知の制限です。 |
 | `[WebRTC] cannot send, data channel not open` の警告が出続ける | `DataChannelReady`前に`Send`を呼んでいます。上と同じ対処。 |
 | ビルド後(IL2CPP)だけ動かない | MessagePackのAOT対応が必要です。ルートREADMEの「既知の制約」参照。 |
+| 送受信データの中身(SDP本文やICE candidate、MessagePackのバイト列)を見たい | `RealtimeP2PKit > Connection Settings` の "Network Logging" トグルをONにしてください。Editor上でのみ有効です。 |

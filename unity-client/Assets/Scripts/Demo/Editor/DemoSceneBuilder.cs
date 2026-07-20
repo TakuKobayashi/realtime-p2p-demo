@@ -65,7 +65,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo.Editor
             EnsureFolder("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, "Assets/Scenes/P2PDemo.unity");
             Debug.Log("[DemoSceneBuilder] Built Assets/Scenes/P2PDemo.unity - " +
-                      "set ServerHost on Assets/Resources/P2PConfig.asset before pressing Play.");
+                      "open RealtimeP2PKit > Connection Settings to point Local/Remote at your server.");
         }
 
         private static void ApplyColor(GameObject go, Color color)
@@ -95,7 +95,8 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo.Editor
             var config = ScriptableObject.CreateInstance<P2PConfig>();
             AssetDatabase.CreateAsset(config, path);
             Debug.LogWarning("[DemoSceneBuilder] Created default P2PConfig.asset - " +
-                              "set ServerHost to your deployed realtime-p2p-server endpoint.");
+                              "connection endpoints are configured separately via " +
+                              "RealtimeP2PKit > Connection Settings (Local/Remote), not on this asset.");
             return config;
         }
 
