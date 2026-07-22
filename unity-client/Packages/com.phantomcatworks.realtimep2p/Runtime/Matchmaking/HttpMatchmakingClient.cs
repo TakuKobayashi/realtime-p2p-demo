@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -60,7 +59,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         private static async Task<string> PostJsonAsync(string method, string url, string jsonBody)
         {
             if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.HttpRequest(method, url, jsonBody));
-            var stopwatch = Stopwatch.StartNew();
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             using var req = new UnityWebRequest(url, method);
             var bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
