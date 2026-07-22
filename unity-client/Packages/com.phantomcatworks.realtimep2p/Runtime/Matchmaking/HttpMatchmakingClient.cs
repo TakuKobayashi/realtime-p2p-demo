@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using UnityEngine;
 using UnityEngine.Networking;
 
 namespace PhantomCatWorks.RealtimeP2PKit
@@ -27,13 +28,16 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             var url = $"{_baseUrl}/api/matchmaking/join";
             var body = JsonConvert.SerializeObject(new MatchmakingJoinRequest { playerId = playerId });
-            P2PLogger.Info($"[Matchmaking] POST {url}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Matchmaking] POST {url}");
 
             var responseText = await PostJsonAsync("POST", url, body);
 
             var result = JsonConvert.DeserializeObject<MatchmakingResult>(responseText);
-            P2PLogger.Info($"[Matchmaking] status={result.status} roomId={result.roomId} " +
-                            $"opponentId={result.opponentId} isInitiator={result.isInitiator}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info))
+            {
+                Debug.Log($"[RealtimeP2PKit][Matchmaking] status={result.status} roomId={result.roomId} " +
+                          $"opponentId={result.opponentId} isInitiator={result.isInitiator}");
+            }
             return result;
         }
 
@@ -41,21 +45,21 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             var url = $"{_baseUrl}/api/matchmaking/leave";
             var body = JsonConvert.SerializeObject(new MatchmakingJoinRequest { playerId = playerId });
-            P2PLogger.Info($"[Matchmaking] POST {url} (leave)");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Matchmaking] POST {url} (leave)");
             try
             {
                 await PostJsonAsync("POST", url, body);
-                P2PLogger.Info("[Matchmaking] left queue");
+                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][Matchmaking] left queue");
             }
             catch (Exception ex)
             {
-                P2PLogger.Warn($"[Matchmaking] leave failed (ignored): {ex.Message}");
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][Matchmaking] leave failed (ignored): {ex.Message}");
             }
         }
 
         private static async Task<string> PostJsonAsync(string method, string url, string jsonBody)
         {
-            P2PNetworkLogger.LogHttpRequest(method, url, jsonBody);
+            if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.HttpRequest(method, url, jsonBody));
             var stopwatch = Stopwatch.StartNew();
 
             using var req = new UnityWebRequest(url, method);
@@ -69,12 +73,15 @@ namespace PhantomCatWorks.RealtimeP2PKit
             stopwatch.Stop();
 
             var isError = req.result != UnityWebRequest.Result.Success;
-            P2PNetworkLogger.LogHttpResponse(method, url, req.responseCode, isError,
-                req.downloadHandler?.text, stopwatch.Elapsed);
+            if (P2PNetworkLog.IsEnabled)
+            {
+                Debug.Log(P2PNetworkLogFormat.HttpResponse(method, url, req.responseCode, isError,
+                    req.downloadHandler?.text, stopwatch.Elapsed));
+            }
 
             if (isError)
             {
-                P2PLogger.Error($"[Matchmaking] request failed: {req.error} (HTTP {req.responseCode}) url={url}");
+                if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Matchmaking] request failed: {req.error} (HTTP {req.responseCode}) url={url}");
                 throw new Exception($"Matchmaking request failed: {req.error}");
             }
 

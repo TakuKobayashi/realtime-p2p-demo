@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit
 {
@@ -23,13 +24,13 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public void Register<T>(byte packetId, Action<T> handler)
         {
             _handlers[packetId] = raw => handler(_codec.Deserialize<T>(raw));
-            P2PLogger.Info($"[PacketRouter] registered handler packetId={packetId} type={typeof(T).Name}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][PacketRouter] registered handler packetId={packetId} type={typeof(T).Name}");
         }
 
         public void Unregister(byte packetId)
         {
             _handlers.Remove(packetId);
-            P2PLogger.Info($"[PacketRouter] unregistered handler packetId={packetId}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][PacketRouter] unregistered handler packetId={packetId}");
         }
 
         public byte[] Encode<T>(byte packetId, T value)
@@ -45,7 +46,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             if (raw == null || raw.Length < 1)
             {
-                P2PLogger.Warn("[PacketRouter] received empty/invalid packet, dropping");
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning("[RealtimeP2PKit][PacketRouter] received empty/invalid packet, dropping");
                 return;
             }
 
@@ -59,7 +60,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             }
             else
             {
-                P2PLogger.Warn($"[PacketRouter] no handler registered for packetId={packetId}, dropping {body.Length} bytes");
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][PacketRouter] no handler registered for packetId={packetId}, dropping {body.Length} bytes");
             }
         }
     }

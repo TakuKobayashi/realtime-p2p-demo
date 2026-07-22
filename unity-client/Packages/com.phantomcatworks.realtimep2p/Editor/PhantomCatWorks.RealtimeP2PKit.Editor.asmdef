@@ -1,0 +1,17 @@
+{
+    "name": "PhantomCatWorks.RealtimeP2PKit.Editor",
+    "rootNamespace": "PhantomCatWorks.RealtimeP2PKit.Editor",
+    "references": [
+        "PhantomCatWorks.RealtimeP2PKit"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": []
+}

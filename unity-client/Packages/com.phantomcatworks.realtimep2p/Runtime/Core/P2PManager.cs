@@ -40,7 +40,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
                 var go = new GameObject(nameof(P2PManager));
                 _instance = go.AddComponent<P2PManager>();
                 DontDestroyOnLoad(go);
-                P2PLogger.Info("[P2PManager] singleton instance created lazily");
+                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] singleton instance created lazily");
                 return _instance;
             }
         }
@@ -64,7 +64,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             if (_instance != null && _instance != this)
             {
-                P2PLogger.Warn("[P2PManager] duplicate instance detected, destroying this one");
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning("[RealtimeP2PKit][P2PManager] duplicate instance detected, destroying this one");
                 Destroy(gameObject);
                 return;
             }
@@ -76,11 +76,14 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public void Initialize(P2PConfig config)
         {
             _config = config;
-            P2PLogger.Level = config.LogLevel;
+            P2PLog.Level = config.LogLevel;
             var matchmakingBaseUrl = P2PEndpoints.GetMatchmakingApiUrl();
-            P2PLogger.Info($"[P2PManager] initializing. environment={P2PEndpoints.GetCurrentEnvironment()} " +
-                            $"matchmakingApiUrl={matchmakingBaseUrl} " +
-                            $"signalingWebSocketUrl={P2PEndpoints.GetSignalingWebSocketUrl()} logLevel={config.LogLevel}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info))
+            {
+                Debug.Log($"[RealtimeP2PKit][P2PManager] initializing. environment={P2PEndpoints.GetCurrentEnvironment()} " +
+                          $"matchmakingApiUrl={matchmakingBaseUrl} " +
+                          $"signalingWebSocketUrl={P2PEndpoints.GetSignalingWebSocketUrl()} logLevel={config.LogLevel}");
+            }
 
             _matchmakingClient = new HttpMatchmakingClient(matchmakingBaseUrl);
             _packetRouter = new PacketRouter(new MessagePackPayloadCodec());
@@ -89,7 +92,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             {
                 StartCoroutine(WebRTC.Update());
                 _webRtcUpdateStarted = true;
-                P2PLogger.Info("[P2PManager] Unity.WebRTC update loop started");
+                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] Unity.WebRTC update loop started");
             }
         }
 
@@ -104,7 +107,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             if (Session.State != P2PSessionState.Connected)
             {
-                P2PLogger.Warn($"[P2PManager] Send<{typeof(T).Name}> ignored, session state={Session.State}");
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][P2PManager] Send<{typeof(T).Name}> ignored, session state={Session.State}");
                 return;
             }
             var buffer = _packetRouter.Encode(packetId, value);
@@ -116,7 +119,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             SetState(P2PSessionState.Matchmaking);
             Session = new P2PSessionInfo { LocalPlayerId = localPlayerId, State = P2PSessionState.Matchmaking };
-            P2PLogger.Info($"[P2PManager] starting matchmaking as playerId={localPlayerId}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][P2PManager] starting matchmaking as playerId={localPlayerId}");
 
             // Listen on our own lobby room first, in case we end up waiting and get
             // matched later by another player's join request.
@@ -137,7 +140,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             }
             else
             {
-                P2PLogger.Info("[P2PManager] queued, waiting for an opponent...");
+                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] queued, waiting for an opponent...");
             }
         }
 
@@ -145,28 +148,31 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             if (Session.State is P2PSessionState.Negotiating or P2PSessionState.Connected)
             {
-                P2PLogger.Warn("[P2PManager] OnLobbyMatched fired again, ignoring (already negotiating/connected)");
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning("[RealtimeP2PKit][P2PManager] OnLobbyMatched fired again, ignoring (already negotiating/connected)");
                 return;
             }
 
             Session.RoomId = msg.roomId;
             Session.OpponentId = msg.opponentId;
             Session.IsInitiator = msg.isInitiator;
-            P2PLogger.Info($"[P2PManager] matched. roomId={msg.roomId} opponentId={msg.opponentId} isInitiator={msg.isInitiator}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][P2PManager] matched. roomId={msg.roomId} opponentId={msg.opponentId} isInitiator={msg.isInitiator}");
             Matched?.Invoke(Session);
 
             SetState(P2PSessionState.SignalingConnecting);
             _signalingClient = new PartyKitSignalingClient(P2PEndpoints.GetSignalingWebSocketUrl());
             _signalingClient.MessageReceived += OnSignalMessage;
             _signalingClient.Connected += OnSignalingConnected;
-            _signalingClient.Disconnected += reason => P2PLogger.Warn($"[P2PManager] signaling disconnected: {reason}");
+            _signalingClient.Disconnected += reason =>
+            {
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][P2PManager] signaling disconnected: {reason}");
+            };
             await _signalingClient.ConnectAsync(msg.roomId);
         }
 
         private void OnSignalingConnected()
         {
             SetState(P2PSessionState.Negotiating);
-            P2PLogger.Info($"[P2PManager] signaling connected, starting WebRTC negotiation (isInitiator={Session.IsInitiator})");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][P2PManager] signaling connected, starting WebRTC negotiation (isInitiator={Session.IsInitiator})");
 
             var stunServerUrls = P2PEndpoints.GetStunServerUrls();
             _peerConnection = new WebRtcPeerConnection(this, _config, stunServerUrls);
@@ -213,14 +219,14 @@ namespace PhantomCatWorks.RealtimeP2PKit
             switch (msg.type)
             {
                 case "offer":
-                    P2PLogger.Info("[P2PManager] received offer, setting remote description and creating answer");
+                    if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] received offer, setting remote description and creating answer");
                     _peerConnection.SetRemoteDescription(new RTCSessionDescription { type = RTCSdpType.Offer, sdp = msg.sdp });
                     _peerConnection.CreateAnswer(answer =>
                         _signalingClient.Send(new RoomSignalEnvelope { type = "answer", sdp = answer.sdp }));
                     break;
 
                 case "answer":
-                    P2PLogger.Info("[P2PManager] received answer, setting remote description");
+                    if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] received answer, setting remote description");
                     _peerConnection.SetRemoteDescription(new RTCSessionDescription { type = RTCSdpType.Answer, sdp = msg.sdp });
                     break;
 
@@ -235,13 +241,13 @@ namespace PhantomCatWorks.RealtimeP2PKit
                     break;
 
                 case "peer-left":
-                    P2PLogger.Warn("[P2PManager] opponent left the room");
+                    if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning("[RealtimeP2PKit][P2PManager] opponent left the room");
                     SetState(P2PSessionState.Disconnected);
                     ConnectionClosed?.Invoke("peer-left");
                     break;
 
                 default:
-                    P2PLogger.Verbose($"[P2PManager] unhandled signal type={msg.type}");
+                    if (P2PLog.ShouldLog(P2PLogLevel.Verbose)) Debug.Log($"[RealtimeP2PKit][P2PManager] unhandled signal type={msg.type}");
                     break;
             }
         }
@@ -255,7 +261,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         private void SetState(P2PSessionState state)
         {
             if (Session.State == state) return;
-            P2PLogger.Info($"[P2PManager] state {Session.State} -> {state}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][P2PManager] state {Session.State} -> {state}");
             Session.State = state;
             StateChanged?.Invoke(state);
         }
@@ -263,7 +269,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         /// <summary>Tears down the current session and leaves the matchmaking queue if still waiting.</summary>
         public async void Disconnect()
         {
-            P2PLogger.Info("[P2PManager] disconnect requested");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] disconnect requested");
             if (_matchmakingClient != null && Session.LocalPlayerId != null)
                 await _matchmakingClient.LeaveQueueAsync(Session.LocalPlayerId);
 

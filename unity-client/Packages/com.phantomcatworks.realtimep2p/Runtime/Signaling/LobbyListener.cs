@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using NativeWebSocket;
+using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit
 {
@@ -31,36 +32,39 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public async Task ConnectAsync(string playerId)
         {
             _url = $"{_baseWsUrl}/parties/lobby/{playerId}";
-            P2PLogger.Info($"[Lobby] connecting: {_url}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Lobby] connecting: {_url}");
 
             _ws = new WebSocket(_url);
             _ws.OnOpen += () =>
             {
-                P2PLogger.Info("[Lobby] websocket OPEN, waiting for match...");
-                P2PNetworkLogger.LogWebSocketOpen("Lobby", _url);
+                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][Lobby] websocket OPEN, waiting for match...");
+                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketOpen("Lobby", _url));
             };
-            _ws.OnError += err => P2PLogger.Error($"[Lobby] websocket error: {err}");
+            _ws.OnError += err =>
+            {
+                if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Lobby] websocket error: {err}");
+            };
             _ws.OnClose += code =>
             {
-                P2PLogger.Info($"[Lobby] websocket closed code={code}");
-                P2PNetworkLogger.LogWebSocketClose("Lobby", _url, code.ToString());
+                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Lobby] websocket closed code={code}");
+                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketClose("Lobby", _url, code.ToString()));
             };
             _ws.OnMessage += bytes =>
             {
                 var json = Encoding.UTF8.GetString(bytes);
-                P2PNetworkLogger.LogWebSocketReceive("Lobby", json);
+                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketReceive("Lobby", json));
                 try
                 {
                     var msg = JsonConvert.DeserializeObject<LobbyMatchedMessage>(json);
                     if (msg?.type == "matched")
                     {
-                        P2PLogger.Info($"[Lobby] matched! roomId={msg.roomId} opponentId={msg.opponentId} isInitiator={msg.isInitiator}");
+                        if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Lobby] matched! roomId={msg.roomId} opponentId={msg.opponentId} isInitiator={msg.isInitiator}");
                         Matched?.Invoke(msg);
                     }
                 }
                 catch (Exception ex)
                 {
-                    P2PLogger.Exception(ex, "Lobby.OnMessage.Parse");
+                    if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Lobby.OnMessage.Parse] Exception: {ex}");
                 }
             };
 

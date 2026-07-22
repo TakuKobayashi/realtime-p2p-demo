@@ -135,13 +135,16 @@ Unityの Console にエラーが出ていない状態が正常です。エラー
 メニュー `RealtimeP2PKit > Connection Settings` を開きます。VRoid SDKの`SDKDebugger`と同様の
 Editor拡張ウィンドウで、以下を設定できます:
 
-- **Environment**: 現在の接続先が`Local`か`Remote`かをプルダウンで切り替え(PlayerPrefsに記録)
-- **Local** / **Remote**: それぞれ独立して
+- **Environment**: 現在の接続先が`Local`か`Remote`かをプルダウンで切り替え(PlayerPrefsに記録)。
+  **切り替えると、その下に表示される入力欄が選択中の環境のものだけに差し替わります**
+  (LocalとRemoteが同時に並んで表示されることはありません)。
+- 選択中の環境について
   - Web API URL(マッチング、例: `http://localhost:8787` / `https://realtime-p2p-server.<account>.workers.dev`)
   - Signaling WebSocket URL(例: `ws://localhost:8787` / `wss://realtime-p2p-server.<account>.workers.dev`)
   - STUN Server URLs(**上から順に使用される複数エントリのリスト**。↑↓ボタンで並び替え、＋で追加、✕で削除)
 
-  を入力し、**Save Local** / **Save Remote** ボタンでPlayerPrefsに保存します。
+  を入力し、**Save Local** / **Save Remote**(選択中の環境名がボタンに表示されます)ボタンで
+  PlayerPrefsに保存します。
 - **Network Logging**: HTTP/WebSocket/WebRTC DataChannelの送受信内容をそのままログ出力する
   トグル(詳細は後述)。
 
@@ -169,8 +172,9 @@ stun:stun.services.mozilla.com:3478
 2台の実機、または `ParrelSync` 等で複製した2つのUnityエディタで `P2PDemo` シーンを再生します。
 2人がキューに入ると自動的にマッチングし、WebRTC接続が確立してcubeが同期し始めます。
 Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出るので、`P2PConfig.LogLevel`を
-`Info`にしておくと接続フローを追いやすいです。ログの各行には自動的に呼び出し元の
-`[クラス名.メソッド名:行番号]`が付くので、どこから出たログかクリックしなくても分かります。
+`Info`にしておくと接続フローを追いやすいです。ログは共有ラッパーを介さず各呼び出し箇所で
+直接`Debug.Log`/`LogWarning`/`LogError`を呼んでいるので、Consoleでログ行をダブルクリックすると
+常にそのログを実際に出したコード行にジャンプします。
 送受信データの生の中身(HTTPリクエスト/レスポンス、WebSocketメッセージ、WebRTC DataChannelの
 バイト列)まで見たい場合は、上記の`RealtimeP2PKit > Connection Settings`の
 **Network Logging** トグルをONにしてください(こちらもEditor上でのみON/OFFできます)。

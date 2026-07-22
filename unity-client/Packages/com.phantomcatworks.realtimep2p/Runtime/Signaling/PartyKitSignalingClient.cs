@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using NativeWebSocket;
+using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit
 {
@@ -33,30 +34,33 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public async Task ConnectAsync(string roomId)
         {
             _url = $"{_baseWsUrl}/parties/room/{roomId}";
-            P2PLogger.Info($"[Signaling] connecting to room websocket: {_url}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Signaling] connecting to room websocket: {_url}");
 
             _ws = new WebSocket(_url);
 
             _ws.OnOpen += () =>
             {
-                P2PLogger.Info("[Signaling] websocket OPEN");
-                P2PNetworkLogger.LogWebSocketOpen("Room", _url);
+                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][Signaling] websocket OPEN");
+                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketOpen("Room", _url));
                 Connected?.Invoke();
             };
 
-            _ws.OnError += err => P2PLogger.Error($"[Signaling] websocket error: {err}");
+            _ws.OnError += err =>
+            {
+                if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Signaling] websocket error: {err}");
+            };
 
             _ws.OnClose += code =>
             {
-                P2PLogger.Warn($"[Signaling] websocket CLOSED code={code}");
-                P2PNetworkLogger.LogWebSocketClose("Room", _url, code.ToString());
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][Signaling] websocket CLOSED code={code}");
+                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketClose("Room", _url, code.ToString()));
                 Disconnected?.Invoke(code.ToString());
             };
 
             _ws.OnMessage += bytes =>
             {
                 var json = Encoding.UTF8.GetString(bytes);
-                P2PNetworkLogger.LogWebSocketReceive("Room", json);
+                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketReceive("Room", json));
                 try
                 {
                     var envelope = JsonConvert.DeserializeObject<RoomSignalEnvelope>(json);
@@ -64,7 +68,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
                 }
                 catch (Exception ex)
                 {
-                    P2PLogger.Exception(ex, "Signaling.OnMessage.Parse");
+                    if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Signaling.OnMessage.Parse] Exception: {ex}");
                 }
             };
 
@@ -75,11 +79,11 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             if (_ws == null || _ws.State != WebSocketState.Open)
             {
-                P2PLogger.Warn($"[Signaling] cannot send, socket not open (type={message.type})");
+                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][Signaling] cannot send, socket not open (type={message.type})");
                 return;
             }
             var json = JsonConvert.SerializeObject(message);
-            P2PNetworkLogger.LogWebSocketSend("Room", json);
+            if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketSend("Room", json));
             _ = _ws.SendText(json);
         }
 

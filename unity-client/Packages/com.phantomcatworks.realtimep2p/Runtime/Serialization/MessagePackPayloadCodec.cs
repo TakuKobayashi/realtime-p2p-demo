@@ -1,4 +1,5 @@
 using MessagePack;
+using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit
 {
@@ -23,14 +24,14 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public byte[] Serialize<T>(T value)
         {
             var bytes = MessagePackSerializer.Serialize(value, _options);
-            P2PLogger.Verbose($"[Codec] serialized {typeof(T).Name} -> {P2PLogger.ToHexPreview(bytes)}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Verbose)) Debug.Log($"[RealtimeP2PKit][Codec] serialized {typeof(T).Name} -> {P2PHexFormat.Preview(bytes)}");
             return bytes;
         }
 
         public T Deserialize<T>(byte[] bytes)
         {
             var value = MessagePackSerializer.Deserialize<T>(bytes, _options);
-            P2PLogger.Verbose($"[Codec] deserialized {P2PLogger.ToHexPreview(bytes)} -> {typeof(T).Name}: {value}");
+            if (P2PLog.ShouldLog(P2PLogLevel.Verbose)) Debug.Log($"[RealtimeP2PKit][Codec] deserialized {P2PHexFormat.Preview(bytes)} -> {typeof(T).Name}: {value}");
             return value;
         }
     }
