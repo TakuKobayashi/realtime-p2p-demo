@@ -1,6 +1,6 @@
 using System;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
 {
     [Serializable]
     public class MatchmakingResult
@@ -25,5 +25,14 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public string guestPlayerId;
         public string status; // "waiting" | "matched"
         public long createdAt;
+    }
+
+    [Serializable]
+    public class LobbyMatchedMessage
+    {
+        public string type;
+        public string roomId;
+        public string opponentId;
+        public bool isInitiator;
     }
 }

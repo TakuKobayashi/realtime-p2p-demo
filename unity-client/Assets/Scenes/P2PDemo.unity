@@ -442,6 +442,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Demo::PhantomCatWorks.RealtimeP2PKit.Demo.DemoBootstrap
   _config: {fileID: 11400000, guid: f9f6612b5fc8645708ebeab78ea24d9f, type: 2}
+  _matchmakingApiUrl: http://localhost:8787
   _localPlayerPrefab: {fileID: 8865054883985821789, guid: 488455621e7a94cc2a9b44ae621886a4, type: 3}
   _remotePlayerPrefab: {fileID: 7790654671364130968, guid: 494df3e630cce4ea9a03c32d6c710286, type: 3}
 --- !u!4 &1860968468

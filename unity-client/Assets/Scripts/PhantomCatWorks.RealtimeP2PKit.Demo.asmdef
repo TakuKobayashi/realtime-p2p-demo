@@ -3,6 +3,7 @@
     "rootNamespace": "PhantomCatWorks.RealtimeP2PKit.Demo",
     "references": [
         "PhantomCatWorks.RealtimeP2PKit",
+        "PhantomCatWorks.RealtimeP2PKit.Example",
         "Unity.WebRTC"
     ],
     "includePlatforms": [],

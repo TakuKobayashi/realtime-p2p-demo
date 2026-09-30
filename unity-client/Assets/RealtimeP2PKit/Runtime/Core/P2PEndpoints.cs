@@ -5,7 +5,7 @@ using UnityEngine;
 namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
-    /// Resolves which matchmaking API / signaling WebSocket / STUN servers to connect to.
+    /// Resolves which signaling WebSocket and STUN servers to connect to.
     ///
     /// Two named environments are supported, "Local" and "Remote". Which one is active,
     /// and each environment's own set of URLs, are editable at any time from the Unity
@@ -20,17 +20,12 @@ namespace PhantomCatWorks.RealtimeP2PKit
         private static P2PConnectionSettings Settings => Resources.Load<P2PConnectionSettings>("P2PConnectionSettings");
 
         // -----------------------------------------------------------------
-        // Hardcoded defaults.
-        //  - Used as the Remote values in EVERY Player build (see class doc above).
-        //  - Also used as the pre-filled starting values shown in the Editor window
-        //    the first time it's opened (before anything has been Saved).
+        // Defaults used before a settings asset is created.
         // -----------------------------------------------------------------
 
-        public const string DefaultLocalMatchmakingApiUrl = "http://localhost:8787";
         public const string DefaultLocalSignalingWebSocketUrl = "ws://localhost:8787";
 
         // TODO: replace with your actual deployed endpoint (see /server, `pnpm deploy`).
-        public const string DefaultRemoteMatchmakingApiUrl = "http://localhost:8787";
         public const string DefaultRemoteSignalingWebSocketUrl = "ws://localhost:8787";
 
         /// <summary>
@@ -49,10 +44,8 @@ namespace PhantomCatWorks.RealtimeP2PKit
         // -----------------------------------------------------------------
 
         public const string PrefKeyEnvironment = "RealtimeP2PKit.Environment";
-        public const string PrefKeyLocalMatchmakingApiUrl = "RealtimeP2PKit.Local.MatchmakingApiUrl";
         public const string PrefKeyLocalSignalingWebSocketUrl = "RealtimeP2PKit.Local.SignalingWebSocketUrl";
         public const string PrefKeyLocalStunServerUrls = "RealtimeP2PKit.Local.StunServerUrls";
-        public const string PrefKeyRemoteMatchmakingApiUrl = "RealtimeP2PKit.Remote.MatchmakingApiUrl";
         public const string PrefKeyRemoteSignalingWebSocketUrl = "RealtimeP2PKit.Remote.SignalingWebSocketUrl";
         public const string PrefKeyRemoteStunServerUrls = "RealtimeP2PKit.Remote.StunServerUrls";
 
@@ -76,23 +69,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
 #if UNITY_EDITOR
             PlayerPrefs.SetInt(PrefKeyEnvironment, (int)environment);
-#endif
-        }
-
-        public static string GetMatchmakingApiUrl()
-            => GetMatchmakingApiUrl(GetCurrentEnvironment());
-
-        public static string GetMatchmakingApiUrl(P2PEnvironment environment)
-        {
-            var configured = Settings;
-            if (configured != null)
-                return environment == P2PEnvironment.Local ? configured.Local.MatchmakingApiUrl : configured.Remote.MatchmakingApiUrl;
-#if UNITY_EDITOR
-            return environment == P2PEnvironment.Local
-                ? PlayerPrefs.GetString(PrefKeyLocalMatchmakingApiUrl, DefaultLocalMatchmakingApiUrl)
-                : PlayerPrefs.GetString(PrefKeyRemoteMatchmakingApiUrl, DefaultRemoteMatchmakingApiUrl);
-#else
-            return DefaultRemoteMatchmakingApiUrl;
 #endif
         }
 

@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
 {
     /// <summary>
     /// Matchmaking client for the Hono-based "matching-api" worker
@@ -80,7 +80,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             if (P2PNetworkLog.IsEnabled)
             {
-                Debug.Log(P2PNetworkLogFormat.HttpRequest(method, url, jsonBody));
+                Debug.Log($"[P2P Example][HTTP] -> {method} {url}\n{jsonBody}");
             }
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
@@ -100,8 +100,8 @@ namespace PhantomCatWorks.RealtimeP2PKit
             var isError = req.result != UnityWebRequest.Result.Success;
             if (P2PNetworkLog.IsEnabled)
             {
-                Debug.Log(P2PNetworkLogFormat.HttpResponse(method, url, req.responseCode, isError,
-                    req.downloadHandler?.text, stopwatch.Elapsed));
+                Debug.Log($"[P2P Example][HTTP] <- {method} {url} status={req.responseCode} " +
+                          $"rtt={stopwatch.ElapsedMilliseconds}ms\n{req.downloadHandler?.text}");
             }
 
             if (isError)

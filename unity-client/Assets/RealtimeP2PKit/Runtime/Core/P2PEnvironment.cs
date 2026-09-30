@@ -1,8 +1,7 @@
 namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
-    /// Which backend deployment to talk to. Only meaningful inside the Unity Editor
-    /// (see P2PEndpoints) - a Player build always behaves as if this were Remote.
+    /// Which configured signaling and STUN endpoints to use.
     /// </summary>
     public enum P2PEnvironment
     {

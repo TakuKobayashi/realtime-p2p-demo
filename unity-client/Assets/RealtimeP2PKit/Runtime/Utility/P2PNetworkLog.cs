@@ -3,7 +3,7 @@ using UnityEngine;
 namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
-    /// Holds only the on/off state for raw network traffic tracing (HTTP/WebSocket/WebRTC
+    /// Holds only the on/off state for raw network traffic tracing (WebSocket/WebRTC
     /// payload content). This is NOT a logging facade - see P2PLog for why. Pair with
     /// P2PNetworkLogFormat, which builds the message strings, and call
     /// UnityEngine.Debug.Log directly at each real call site:

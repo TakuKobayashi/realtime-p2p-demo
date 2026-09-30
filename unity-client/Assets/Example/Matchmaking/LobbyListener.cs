@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 using NativeWebSocket;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
 {
     /// <summary>
     /// Listens on this player's "Lobby" party (a partyserver Durable Object, one

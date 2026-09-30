@@ -3,8 +3,9 @@
 > Unity Hub で開くフォルダはリポジトリ直下ではなく **`unity-client/`** です。
 > ライブラリ本体と接続設定 Window は `unity-client/Assets/RealtimeP2PKit/`、
 > 動作例は `unity-client/Assets/Example/` にあります。
-> `RealtimeP2PKit > Connection Settings` で Web API / WebSocket / 複数 STUN URL を設定し、
-> Player ビルドで使う環境も選択してください。
+> `RealtimeP2PKit > Connection Settings` では Local / Remote をプルダウンで選び、
+> シグナリング WebSocket URL と複数の STUN URL を設定します。Player ビルドで使う環境も選択してください。
+> マッチングと HTTP クライアントはライブラリには含まず、`unity-client/Assets/Example/Matchmaking/` にあります。
 > 以下に残る旧 `Packages/com.phantomcatworks.realtimep2p/` と NuGetForUnity の記述は移植前の構成です。
 
 

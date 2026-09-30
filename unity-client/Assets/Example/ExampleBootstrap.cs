@@ -1,4 +1,5 @@
 using System;
+using PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit.Example
@@ -7,6 +8,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example
     {
         private const byte PositionPacketId = 1;
         [SerializeField] private P2PConfig _config;
+        [SerializeField] private string _matchmakingApiUrl = "http://localhost:8787";
         [SerializeField] private float _speed = 4f;
 
         private Transform _localPlayer;
@@ -22,7 +24,8 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example
             manager.ConnectionClosed += OnConnectionClosed;
             _localPlayer = CreateCube("Local player", Color.cyan, Vector3.left);
             _remotePlayer = CreateCube("Remote player", Color.magenta, Vector3.right);
-            manager.StartMatchmaking(Guid.NewGuid().ToString("N"));
+            gameObject.AddComponent<ExampleMatchmakingFlow>()
+                .StartQueue(Guid.NewGuid().ToString("N"), _matchmakingApiUrl);
         }
 
         private static Transform CreateCube(string name, Color color, Vector3 position)

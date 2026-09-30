@@ -6,23 +6,15 @@ using System.Threading.Tasks;
 namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
-    /// Singleton entry point for the RealtimeP2PKit library. Orchestrates:
-    ///   1. Matchmaking      (IMatchmakingClient  - Hono REST API)
-    ///   2. Signaling        (ISignalingClient / LobbyListener - PartyKit WebSocket)
-    ///   3. WebRTC negotiation & data channel (WebRtcPeerConnection)
-    ///   4. Packet (de)serialization + routing (PacketRouter / MessagePack)
+    /// Connects a known signaling room, negotiates WebRTC, and routes data packets.
+    /// Room discovery and matchmaking belong to the consuming application.
     ///
-    /// This is the ONLY class other game code should talk to. Everything else in
-    /// this package is an implementation detail reachable through here, which is
-    /// what makes the library safe to drop into a different Unity project as-is.
-    ///
-    /// Typical usage from any other script (see Assets/Scripts/Demo for a full example):
+    /// Typical usage from any other script:
     /// <code>
     ///   P2PManager.Instance.Initialize(config);
     ///   P2PManager.Instance.RegisterPacketHandler&lt;PositionPacket&gt;(1, OnPosition);
-    ///   P2PManager.Instance.Matched += info => ...;
     ///   P2PManager.Instance.DataChannelReady += () => ...;
-    ///   P2PManager.Instance.StartMatchmaking(myPlayerId);
+    ///   await P2PManager.Instance.ConnectToRoomAsync(myPlayerId, roomId, peerId, true);
     ///   ...
     ///   P2PManager.Instance.Send(1, new PositionPacket { X = 1, Y = 0, Z = 3 });
     /// </code>
@@ -58,7 +50,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         }
 
         public event Action<P2PSessionState> StateChanged;
-        public event Action<P2PSessionInfo> Matched;
+        public event Action<P2PSessionInfo> RoomConnecting;
         public event Action DataChannelReady;
         public event Action<string> ConnectionClosed;
         /// <summary>Raised once when the other peer leaves the signaling room.</summary>
@@ -69,8 +61,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public bool IsOnlineMatch { get; private set; }
 
         private P2PConfig _config;
-        private HttpMatchmakingClient _matchmakingClient;
-        private LobbyListener _lobbyListener;
         private PartyKitSignalingClient _signalingClient;
         private WebRtcPeerConnection _peerConnection;
         private PacketRouter _packetRouter;
@@ -93,9 +83,8 @@ namespace PhantomCatWorks.RealtimeP2PKit
         }
 
         /// <summary>
-        /// Optionally supplies data-channel settings. Calling this is not required
-        /// for matchmaking/room HTTP APIs; those APIs lazily use P2PConfig's
-        /// built-in defaults when no explicit config has been supplied.
+        /// Optionally supplies data-channel settings. Built-in defaults are used
+        /// when no explicit config is supplied.
         /// </summary>
         public void Initialize(P2PConfig config)
         {
@@ -115,10 +104,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
             _config = config;
             _endpointEnvironment = environment;
             P2PLog.Level = config.LogLevel;
-            var matchmakingBaseUrl = P2PEndpoints.GetMatchmakingApiUrl(_endpointEnvironment);
-            if (!Uri.TryCreate(matchmakingBaseUrl, UriKind.Absolute, out var apiUri) ||
-                (apiUri.Scheme != Uri.UriSchemeHttp && apiUri.Scheme != Uri.UriSchemeHttps))
-                throw new ArgumentException("Configure a valid matchmaking HTTP URL in RealtimeP2PKit/Connection Settings.");
             var signalingUrl = P2PEndpoints.GetSignalingWebSocketUrl(_endpointEnvironment);
             if (!Uri.TryCreate(signalingUrl, UriKind.Absolute, out var wsUri) ||
                 (wsUri.Scheme != "ws" && wsUri.Scheme != "wss"))
@@ -126,11 +111,9 @@ namespace PhantomCatWorks.RealtimeP2PKit
             if (P2PLog.ShouldLog(P2PLogLevel.Info))
             {
                 Debug.Log($"[RealtimeP2PKit][P2PManager] initializing. environment={_endpointEnvironment} " +
-                          $"matchmakingApiUrl={matchmakingBaseUrl} " +
                           $"signalingWebSocketUrl={signalingUrl} logLevel={config.LogLevel}");
             }
 
-            _matchmakingClient = new HttpMatchmakingClient(matchmakingBaseUrl);
             // Do not discard registered gameplay packet handlers when a scene
             // provides its config after the manager was lazily initialized.
             _packetRouter ??= new PacketRouter(new MessagePackPayloadCodec());
@@ -170,112 +153,40 @@ namespace PhantomCatWorks.RealtimeP2PKit
             _peerConnection.Send(buffer);
         }
 
-        /// <summary>Joins the matchmaking queue and drives the connection through to Connected.</summary>
-        public async void StartMatchmaking(string localPlayerId)
-        {
-            EnsureInitialized();
-            IsOnlineMatch = true;
-            _peerConnectionStarted = false;
-            _dataChannelReadyRaised = false;
-            _opponentLeftRaised = false;
-            SetState(P2PSessionState.Matchmaking);
-            Session = new P2PSessionInfo { LocalPlayerId = localPlayerId, State = P2PSessionState.Matchmaking };
-            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][P2PManager] starting matchmaking as playerId={localPlayerId}");
-
-            // Listen on our own lobby room first, in case we end up waiting and get
-            // matched later by another player's join request.
-            _lobbyListener = new LobbyListener(P2PEndpoints.GetSignalingWebSocketUrl(_endpointEnvironment));
-            _lobbyListener.Matched += OnLobbyMatched;
-            await _lobbyListener.ConnectAsync(localPlayerId);
-
-            var result = await _matchmakingClient.JoinQueueAsync(localPlayerId);
-            if (result.status == "matched")
-            {
-                OnLobbyMatched(new LobbyMatchedMessage
-                {
-                    type = "matched",
-                    roomId = result.roomId,
-                    opponentId = result.opponentId,
-                    isInitiator = result.isInitiator,
-                });
-            }
-            else
-            {
-                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] queued, waiting for an opponent...");
-            }
-        }
-
-        /// <summary>Creates a public room and waits there until another player joins it.</summary>
-        public async Task CreateRoom(string localPlayerId)
-        {
-            try
-            {
-                PrepareNewSession(localPlayerId);
-                var room = await _matchmakingClient.CreateRoomAsync(localPlayerId);
-                await ConnectToRoomAsync(room.id, null, true);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[RealtimeP2PKit][P2PManager] room creation failed: {ex}");
-                SetState(P2PSessionState.Idle);
-                throw;
-            }
-        }
-
-        /// <summary>Reserves an open room and joins its signaling room as the answerer.</summary>
-        public async Task JoinRoom(string localPlayerId, MachingRoom room)
-        {
-            try
-            {
-                PrepareNewSession(localPlayerId);
-                var joined = await _matchmakingClient.JoinRoomAsync(room.id, localPlayerId);
-                await ConnectToRoomAsync(joined.id, joined.hostPlayerId, false);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[RealtimeP2PKit][P2PManager] room join failed: {ex.Message}");
-                SetState(P2PSessionState.Idle);
-                throw;
-            }
-        }
-
-        private void PrepareNewSession(string localPlayerId)
-        {
-            EnsureInitialized();
-            IsOnlineMatch = true;
-            _peerConnectionStarted = false;
-            _dataChannelReadyRaised = false;
-            _opponentLeftRaised = false;
-            SetState(P2PSessionState.Matchmaking);
-            Session = new P2PSessionInfo { LocalPlayerId = localPlayerId, State = P2PSessionState.Matchmaking };
-        }
-
         private void EnsureInitialized()
         {
-            if (_matchmakingClient != null && _packetRouter != null && _config != null) return;
+            if (_packetRouter != null && _config != null) return;
             Initialize(null);
         }
 
-        private async void OnLobbyMatched(LobbyMatchedMessage msg)
+        /// <summary>
+        /// Connects to a room after the caller has obtained its ID and peer assignment.
+        /// The caller owns matchmaking, room creation, and any HTTP requests.
+        /// </summary>
+        public async Task ConnectToRoomAsync(string localPlayerId, string roomId, string opponentId, bool isInitiator)
         {
-            if (Session.State is P2PSessionState.Negotiating or P2PSessionState.Connected)
+            if (string.IsNullOrWhiteSpace(localPlayerId)) throw new ArgumentException("Player ID is required.", nameof(localPlayerId));
+            if (string.IsNullOrWhiteSpace(roomId)) throw new ArgumentException("Room ID is required.", nameof(roomId));
+            EnsureInitialized();
+            if (IsOnlineMatch) Disconnect();
+
+            IsOnlineMatch = true;
+            _peerConnectionStarted = false;
+            _dataChannelReadyRaised = false;
+            _opponentLeftRaised = false;
+            Session = new P2PSessionInfo
             {
-                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning("[RealtimeP2PKit][P2PManager] OnLobbyMatched fired again, ignoring (already negotiating/connected)");
-                return;
-            }
-
-            await ConnectToRoomAsync(msg.roomId, msg.opponentId, msg.isInitiator);
-        }
-
-        private async System.Threading.Tasks.Task ConnectToRoomAsync(string roomId, string opponentId, bool isInitiator)
-        {
-            Session.RoomId = roomId;
-            Session.OpponentId = opponentId;
-            Session.IsInitiator = isInitiator;
-            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][P2PManager] joining room. roomId={roomId} opponentId={opponentId} isInitiator={isInitiator}");
-            Matched?.Invoke(Session);
-
+                LocalPlayerId = localPlayerId,
+                RoomId = roomId,
+                OpponentId = opponentId,
+                IsInitiator = isInitiator,
+                State = P2PSessionState.Idle,
+            };
+            RoomConnecting?.Invoke(Session);
             SetState(P2PSessionState.SignalingConnecting);
+            if (P2PLog.ShouldLog(P2PLogLevel.Info))
+                Debug.Log($"[RealtimeP2PKit][P2PManager] joining room. roomId={roomId} opponentId={opponentId} isInitiator={isInitiator}");
+
             _signalingClient = new PartyKitSignalingClient(P2PEndpoints.GetSignalingWebSocketUrl(_endpointEnvironment));
             _signalingClient.MessageReceived += OnSignalMessage;
             _signalingClient.Connected += OnSignalingConnected;
@@ -283,7 +194,16 @@ namespace PhantomCatWorks.RealtimeP2PKit
             {
                 if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][P2PManager] signaling disconnected: {reason}");
             };
-            await _signalingClient.ConnectAsync(roomId);
+            try
+            {
+                await _signalingClient.ConnectAsync(roomId);
+            }
+            catch
+            {
+                Disconnect();
+                SetState(P2PSessionState.Failed);
+                throw;
+            }
         }
 
         private void OnSignalingConnected()
@@ -390,7 +310,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
         private void Update()
         {
             _signalingClient?.DispatchMessageQueue();
-            _lobbyListener?.DispatchMessageQueue();
 
             // Unity.WebRTC can expose an open locally-created data channel
             // without invoking its OnOpen callback. Polling the state makes
@@ -425,26 +344,16 @@ namespace PhantomCatWorks.RealtimeP2PKit
             StateChanged?.Invoke(state);
         }
 
-        /// <summary>Tears down the current session and leaves the matchmaking queue if still waiting.</summary>
+        /// <summary>Tears down the current WebRTC and signaling session.</summary>
         public void Disconnect()
         {
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][P2PManager] disconnect requested");
 
-            // Leave the server asynchronously, but do not keep WebRTC or
-            // signaling alive while a scene is changing.
-            var playerId = Session.LocalPlayerId;
-            if (_matchmakingClient != null && !string.IsNullOrEmpty(playerId))
-            {
-                LeaveMatchmakingAsync(_matchmakingClient, playerId);
-            }
-
             IsOnlineMatch = false;
             _peerConnection?.Dispose();
             _signalingClient?.Dispose();
-            _lobbyListener?.Dispose();
             _peerConnection = null;
             _signalingClient = null;
-            _lobbyListener = null;
             _peerConnectionStarted = false;
             _dataChannelReadyRaised = false;
             _opponentLeftRaised = false;
@@ -452,11 +361,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
             Session = new P2PSessionInfo { State = P2PSessionState.Idle };
         }
 
-
-        private async void LeaveMatchmakingAsync(HttpMatchmakingClient matchmakingClient, string playerId)
-        {
-            await matchmakingClient.LeaveQueueAsync(playerId);
-        }
 
         private void OnDestroy()
         {
@@ -466,7 +370,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
             }
             _peerConnection?.Dispose();
             _signalingClient?.Dispose();
-            _lobbyListener?.Dispose();
         }
     }
 }

@@ -14,13 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit::PhantomCatWorks.RealtimeP2PKit.P2PConnectionSettings
   PlayerEnvironment: 1
   Local:
-    MatchmakingApiUrl: http://localhost:8787
     SignalingWebSocketUrl: ws://localhost:8787
     StunServerUrls:
     - stun:stun.l.google.com:19302
     - stun:stun1.l.google.com:19302
   Remote:
-    MatchmakingApiUrl: http://localhost:8787
     SignalingWebSocketUrl: ws://localhost:8787
     StunServerUrls:
     - stun:stun.l.google.com:19302

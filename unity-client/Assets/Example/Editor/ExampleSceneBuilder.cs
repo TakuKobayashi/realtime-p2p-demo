@@ -29,7 +29,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Editor
             {
                 new EditorBuildSettingsScene("Assets/Example/Scenes/P2PExample.unity", true)
             };
-            Debug.Log("[P2P Example] Open Connection Settings, then press Play in Assets/Example/Scenes/P2PExample.unity.");
+            Debug.Log("[P2P Example] Configure signaling/STUN in Connection Settings and the matchmaking API URL on ExampleBootstrap, then press Play.");
         }
     }
 }

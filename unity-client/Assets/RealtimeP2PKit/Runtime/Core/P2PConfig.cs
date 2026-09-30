@@ -4,7 +4,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
 {
     /// <summary>
     /// Non-endpoint tunables for a RealtimeP2PKit session, as a ScriptableObject asset.
-    /// Connection endpoints (matchmaking API URL / signaling WebSocket URL / STUN servers)
+    /// Connection endpoints (signaling WebSocket URL / STUN servers)
     /// are saved in P2PConnectionSettings and are switched between
     /// "Local"/"Remote" via the Unity Editor window "RealtimeP2PKit &gt; Connection Settings"
     /// (see P2PConnectionSettingsWindow). That split exists specifically so a developer can
@@ -22,8 +22,8 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public int MaxRetransmits = 0;
 
         [Header("Logging")]
-        [Tooltip("General connection-flow logging (matchmaking/signaling/WebRTC state). " +
-                 "For raw HTTP/WebSocket/WebRTC payload tracing, see the Editor-only " +
+        [Tooltip("General connection-flow logging (signaling/WebRTC state). " +
+                 "For raw WebSocket/WebRTC payload tracing, see the Editor-only " +
                  "'Network Logging' toggle in RealtimeP2PKit > Connection Settings instead.")]
         public P2PLogLevel LogLevel = P2PLogLevel.Info;
     }

@@ -10,7 +10,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
         [Serializable]
         public sealed class EndpointSet
         {
-            public string MatchmakingApiUrl = "http://localhost:8787";
             public string SignalingWebSocketUrl = "ws://localhost:8787";
             public List<string> StunServerUrls = new List<string>
             {

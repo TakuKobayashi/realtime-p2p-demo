@@ -1,3 +1,4 @@
+using PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit.Demo
@@ -10,6 +11,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo
     public class DemoBootstrap : MonoBehaviour
     {
         [SerializeField] private P2PConfig _config;
+        [SerializeField] private string _matchmakingApiUrl = "http://localhost:8787";
         [SerializeField] private GameObject _localPlayerPrefab;
         [SerializeField] private GameObject _remotePlayerPrefab;
 
@@ -20,11 +22,11 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo
 
             P2PManager.Instance.Initialize(_config);
             P2PManager.Instance.StateChanged += state => Debug.Log($"[Demo] session state -> {state}");
-            P2PManager.Instance.Matched += info => Debug.Log($"[Demo] matched with {info.OpponentId} in room {info.RoomId}");
+            P2PManager.Instance.RoomConnecting += info => Debug.Log($"[Demo] connecting with {info.OpponentId} in room {info.RoomId}");
             P2PManager.Instance.DataChannelReady += OnDataChannelReady;
             P2PManager.Instance.ConnectionClosed += reason => Debug.LogWarning($"[Demo] connection closed: {reason}");
 
-            P2PManager.Instance.StartMatchmaking(localPlayerId);
+            gameObject.AddComponent<ExampleMatchmakingFlow>().StartQueue(localPlayerId, _matchmakingApiUrl);
         }
 
         private void OnDataChannelReady()

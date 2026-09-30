@@ -1,0 +1,11 @@
+{
+    "name": "PhantomCatWorks.RealtimeP2PKit.Example.Editor",
+    "rootNamespace": "PhantomCatWorks.RealtimeP2PKit.Example.Editor",
+    "references": [
+        "PhantomCatWorks.RealtimeP2PKit.Example",
+        "PhantomCatWorks.RealtimeP2PKit.Editor",
+        "PhantomCatWorks.RealtimeP2PKit"
+    ],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": true
+}

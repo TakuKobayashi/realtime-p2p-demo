@@ -5,25 +5,16 @@ using UnityEngine;
 namespace PhantomCatWorks.RealtimeP2PKit.Editor
 {
     /// <summary>
-    /// "RealtimeP2PKit &gt; Connection Settings" - edits the Local (for example,
-    /// `wrangler dev` on localhost) and Remote (deployed) endpoint sets side by side.
-    /// Both sets consist of a matchmaking API URL, a signaling WebSocket URL, and a
-    /// STUN server list, saved in P2PConnectionSettings for Editor and Player builds.
-    ///
-    /// Everything in this window is Editor-only by construction: it lives under an
-    /// Editor/-only asmdef and is never compiled into a Player build. The environment
-    /// Only environment selection in the Editor and the network logging toggle
-    /// are stored per machine in PlayerPrefs.
+    /// Edits the signaling WebSocket URL and STUN servers for the selected environment.
+    /// Endpoint values are saved in a Resources asset for Editor and Player builds.
     /// </summary>
     public class P2PConnectionSettingsWindow : EditorWindow
     {
         private const string SettingsAssetPath = "Assets/RealtimeP2PKit/Resources/P2PConnectionSettings.asset";
         private P2PConnectionSettings _settings;
-        private string _localMatchmakingApiUrl;
         private string _localSignalingWebSocketUrl;
         private List<string> _localStunServerUrls;
 
-        private string _remoteMatchmakingApiUrl;
         private string _remoteSignalingWebSocketUrl;
         private List<string> _remoteStunServerUrls;
 
@@ -62,19 +53,15 @@ namespace PhantomCatWorks.RealtimeP2PKit.Editor
         {
             if (_settings != null)
             {
-                _localMatchmakingApiUrl = _settings.Local.MatchmakingApiUrl;
                 _localSignalingWebSocketUrl = _settings.Local.SignalingWebSocketUrl;
                 _localStunServerUrls = new List<string>(_settings.Local.StunServerUrls);
-                _remoteMatchmakingApiUrl = _settings.Remote.MatchmakingApiUrl;
                 _remoteSignalingWebSocketUrl = _settings.Remote.SignalingWebSocketUrl;
                 _remoteStunServerUrls = new List<string>(_settings.Remote.StunServerUrls);
                 return;
             }
-            _localMatchmakingApiUrl = PlayerPrefs.GetString(P2PEndpoints.PrefKeyLocalMatchmakingApiUrl, P2PEndpoints.DefaultLocalMatchmakingApiUrl);
             _localSignalingWebSocketUrl = PlayerPrefs.GetString(P2PEndpoints.PrefKeyLocalSignalingWebSocketUrl, P2PEndpoints.DefaultLocalSignalingWebSocketUrl);
             _localStunServerUrls = P2PEndpoints.LoadStunServerUrls(P2PEndpoints.PrefKeyLocalStunServerUrls);
 
-            _remoteMatchmakingApiUrl = PlayerPrefs.GetString(P2PEndpoints.PrefKeyRemoteMatchmakingApiUrl, P2PEndpoints.DefaultRemoteMatchmakingApiUrl);
             _remoteSignalingWebSocketUrl = PlayerPrefs.GetString(P2PEndpoints.PrefKeyRemoteSignalingWebSocketUrl, P2PEndpoints.DefaultRemoteSignalingWebSocketUrl);
             _remoteStunServerUrls = P2PEndpoints.LoadStunServerUrls(P2PEndpoints.PrefKeyRemoteStunServerUrls);
         }
@@ -84,7 +71,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Editor
             _scrollPos = EditorGUILayout.BeginScrollView(_scrollPos);
 
             var current = P2PEndpoints.GetCurrentEnvironment();
-            var selected = (P2PEnvironment)EditorGUILayout.EnumPopup("Editor environment", current);
+            var selected = (P2PEnvironment)EditorGUILayout.EnumPopup("Environment to edit", current);
             if (selected != current) P2PEndpoints.SetCurrentEnvironment(selected);
             if (_settings != null)
             {
@@ -98,23 +85,15 @@ namespace PhantomCatWorks.RealtimeP2PKit.Editor
             }
 
             EditorGUILayout.HelpBox(
-                "接続先と STUN の設定はプロジェクトのアセットに保存され、Player ビルドにも含まれます。" +
-                "ビルド前に Player build environment と Remote の接続先を確認してください。",
+                "表示中の Local / Remote が Editor の接続先です。接続先と STUN の設定は Player ビルドにも含まれます。" +
+                "ビルド前に Player build environment を確認してください。",
                 MessageType.Info);
             EditorGUILayout.Space();
 
-            DrawEnvironmentSettings(
-                "Local (ローカルサーバー)",
-                ref _localMatchmakingApiUrl,
-                ref _localSignalingWebSocketUrl,
-                _localStunServerUrls);
-
-            EditorGUILayout.Space();
-            DrawEnvironmentSettings(
-                "Remote (デプロイ済みサーバー)",
-                ref _remoteMatchmakingApiUrl,
-                ref _remoteSignalingWebSocketUrl,
-                _remoteStunServerUrls);
+            if (selected == P2PEnvironment.Local)
+                DrawEnvironmentSettings("Local (ローカルサーバー)", ref _localSignalingWebSocketUrl, _localStunServerUrls);
+            else
+                DrawEnvironmentSettings("Remote (デプロイ済みサーバー)", ref _remoteSignalingWebSocketUrl, _remoteStunServerUrls);
 
             EditorGUILayout.Space();
             if (GUILayout.Button("Save Local / Remote Settings"))
@@ -125,7 +104,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Network Logging", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "HTTP(マッチングAPI)/WebSocket(シグナリング)/WebRTC DataChannelの送受信内容を" +
+                "WebSocket(シグナリング)/WebRTC DataChannelの送受信内容を" +
                 "そのままログ出力します。UnityEditor上でのみON/OFFを切り替えられ、この設定自体もビルドには" +
                 "含まれません(ビルドしたアプリでは常にOFFです)。",
                 MessageType.None);
@@ -141,13 +120,11 @@ namespace PhantomCatWorks.RealtimeP2PKit.Editor
 
         private static void DrawEnvironmentSettings(
             string title,
-            ref string matchmakingApiUrl,
             ref string signalingWebSocketUrl,
             List<string> stunServerUrls)
         {
             EditorGUILayout.BeginVertical(GUI.skin.box);
             EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
-            matchmakingApiUrl = EditorGUILayout.TextField("Web API URL", matchmakingApiUrl);
             signalingWebSocketUrl = EditorGUILayout.TextField("Signaling WebSocket URL", signalingWebSocketUrl);
 
             EditorGUILayout.Space();
@@ -167,12 +144,13 @@ namespace PhantomCatWorks.RealtimeP2PKit.Editor
                     (stunServerUrls[i + 1], stunServerUrls[i]) = (stunServerUrls[i], stunServerUrls[i + 1]);
                 }
                 GUI.enabled = true;
-                if (GUILayout.Button("✕", GUILayout.Width(24)))
+                var remove = GUILayout.Button("✕", GUILayout.Width(24));
+                EditorGUILayout.EndHorizontal();
+                if (remove)
                 {
                     stunServerUrls.RemoveAt(i);
                     break;
                 }
-                EditorGUILayout.EndHorizontal();
             }
             if (GUILayout.Button("+ Add STUN Server"))
             {
@@ -186,20 +164,16 @@ namespace PhantomCatWorks.RealtimeP2PKit.Editor
         {
             if (_settings != null)
             {
-                _settings.Local.MatchmakingApiUrl = _localMatchmakingApiUrl.Trim();
                 _settings.Local.SignalingWebSocketUrl = _localSignalingWebSocketUrl.Trim();
                 _settings.Local.StunServerUrls = new List<string>(_localStunServerUrls);
-                _settings.Remote.MatchmakingApiUrl = _remoteMatchmakingApiUrl.Trim();
                 _settings.Remote.SignalingWebSocketUrl = _remoteSignalingWebSocketUrl.Trim();
                 _settings.Remote.StunServerUrls = new List<string>(_remoteStunServerUrls);
                 EditorUtility.SetDirty(_settings);
                 AssetDatabase.SaveAssets();
             }
-            PlayerPrefs.SetString(P2PEndpoints.PrefKeyLocalMatchmakingApiUrl, _localMatchmakingApiUrl);
             PlayerPrefs.SetString(P2PEndpoints.PrefKeyLocalSignalingWebSocketUrl, _localSignalingWebSocketUrl);
             P2PEndpoints.SaveStunServerUrls(P2PEndpoints.PrefKeyLocalStunServerUrls, _localStunServerUrls);
 
-            PlayerPrefs.SetString(P2PEndpoints.PrefKeyRemoteMatchmakingApiUrl, _remoteMatchmakingApiUrl);
             PlayerPrefs.SetString(P2PEndpoints.PrefKeyRemoteSignalingWebSocketUrl, _remoteSignalingWebSocketUrl);
             P2PEndpoints.SaveStunServerUrls(P2PEndpoints.PrefKeyRemoteStunServerUrls, _remoteStunServerUrls);
             PlayerPrefs.Save();

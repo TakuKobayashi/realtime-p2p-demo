@@ -3,7 +3,6 @@ namespace PhantomCatWorks.RealtimeP2PKit
     public enum P2PSessionState
     {
         Idle,
-        Matchmaking,
         SignalingConnecting,
         Negotiating,
         Connected,
