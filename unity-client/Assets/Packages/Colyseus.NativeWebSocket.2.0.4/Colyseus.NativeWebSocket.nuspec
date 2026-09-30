@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>Colyseus.NativeWebSocket</id>
+    <version>2.0.4</version>
+    <authors>Endel Dreyer</authors>
+    <license type="expression">MIT</license>
+    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
+    <description>WebSocket client for .NET - works with Unity, MonoGame, Godot, and any .NET application.</description>
+    <repository type="git" url="https://github.com/endel/NativeWebSocket" commit="cbbf04d42522d5f5b466224a0b8e3936676f9b32" />
+    <dependencies>
+      <group targetFramework="net6.0" />
+      <group targetFramework=".NETStandard2.0" />
+    </dependencies>
+  </metadata>
+</package>

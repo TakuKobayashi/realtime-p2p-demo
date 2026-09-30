@@ -1,5 +1,13 @@
 # realtime-p2p demo (Unity + WebRTC + partyserver/Cloudflare)
 
+> Unity Hub で開くフォルダはリポジトリ直下ではなく **`unity-client/`** です。
+> ライブラリ本体と接続設定 Window は `unity-client/Assets/RealtimeP2PKit/`、
+> 動作例は `unity-client/Assets/Example/` にあります。
+> `RealtimeP2PKit > Connection Settings` で Web API / WebSocket / 複数 STUN URL を設定し、
+> Player ビルドで使う環境も選択してください。
+> 以下に残る旧 `Packages/com.phantomcatworks.realtimep2p/` と NuGetForUnity の記述は移植前の構成です。
+
+
 1対1リアルタイム対戦ゲームの実証実験。座標(xyz)をWebRTC DataChannel経由でP2P直接送信し、
 マッチング/シグナリングは **1つのCloudflare Worker** で行う構成です。
 

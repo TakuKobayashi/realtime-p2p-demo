@@ -1,10 +1,20 @@
 import { Hono } from "hono";
-import { and, asc, eq, ne } from "drizzle-orm";
+import { and, asc, eq, ne, sql } from "drizzle-orm";
 import { createDb } from "../db/client";
-import { queuePlayers } from "../db/schema";
+import { gameRooms, queuePlayers } from "../db/schema";
 import type { Env } from "../env";
 
 const matchmaking = new Hono<{ Bindings: Env }>();
+
+function roomResponse(room: { id: string; hostPlayerId: string; guestPlayerId: string | null; status: string; createdAt: Date }) {
+  return {
+    id: room.id,
+    hostPlayerId: room.hostPlayerId,
+    guestPlayerId: room.guestPlayerId,
+    status: room.status,
+    createdAt: room.createdAt.getTime(),
+  };
+}
 
 /**
  * POST /api/matchmaking/join { playerId }
@@ -106,6 +116,7 @@ matchmaking.post("/leave", async (c) => {
   if (!playerId) return c.json({ error: "playerId is required" }, 400);
   const db = createDb(c.env.DB);
   await db.delete(queuePlayers).where(eq(queuePlayers.id, playerId));
+  await db.delete(gameRooms).where(sql`${gameRooms.hostPlayerId} = ${playerId} OR ${gameRooms.guestPlayerId} = ${playerId}`);
   return c.json({ status: "ok" });
 });
 
@@ -120,6 +131,49 @@ matchmaking.get("/status/:playerId", async (c) => {
     roomId: row.roomId ?? null,
     opponentId: row.opponentId ?? null,
   });
+});
+
+/** Create a public room. The creator is the WebRTC offerer. */
+matchmaking.post("/rooms", async (c) => {
+  const { playerId } = await c.req.json<{ playerId: string }>();
+  if (!playerId) return c.json({ error: "playerId is required" }, 400);
+  const db = createDb(c.env.DB);
+  const existing = await db.select().from(gameRooms)
+    .where(and(eq(gameRooms.hostPlayerId, playerId), eq(gameRooms.status, "waiting"))).get();
+  if (existing) return c.json(roomResponse(existing));
+
+  const room = {
+    id: crypto.randomUUID(), hostPlayerId: playerId, guestPlayerId: null,
+    status: "waiting" as const, createdAt: new Date(),
+  };
+  await db.insert(gameRooms).values(room);
+  return c.json(roomResponse(room), 201);
+});
+
+/** List open rooms owned by other players. */
+matchmaking.get("/rooms", async (c) => {
+  const playerId = c.req.query("playerId");
+  if (!playerId) return c.json({ error: "playerId is required" }, 400);
+  const db = createDb(c.env.DB);
+  const rooms = await db.select().from(gameRooms)
+    .where(and(eq(gameRooms.status, "waiting"), ne(gameRooms.hostPlayerId, playerId)))
+    .orderBy(asc(gameRooms.createdAt));
+  return c.json(rooms.map(roomResponse));
+});
+
+/** Atomically reserve a room for its second player. */
+matchmaking.post("/rooms/:roomId/join", async (c) => {
+  const roomId = c.req.param("roomId");
+  const { playerId } = await c.req.json<{ playerId: string }>();
+  if (!playerId) return c.json({ error: "playerId is required" }, 400);
+  const db = createDb(c.env.DB);
+  await db.delete(gameRooms).where(and(eq(gameRooms.hostPlayerId, playerId), eq(gameRooms.status, "waiting")));
+  const result = await c.env.DB.prepare(
+    "UPDATE game_rooms SET status = 'matched', guest_player_id = ? WHERE id = ? AND status = 'waiting' AND host_player_id <> ?"
+  ).bind(playerId, roomId, playerId).run();
+  if (result.meta.changes !== 1) return c.json({ error: "room is no longer available" }, 409);
+  const room = await db.select().from(gameRooms).where(eq(gameRooms.id, roomId)).get();
+  return c.json({ ...roomResponse(room!), isInitiator: false });
 });
 
 export default matchmaking;

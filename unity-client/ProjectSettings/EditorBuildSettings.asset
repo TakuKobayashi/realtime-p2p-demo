@@ -4,6 +4,9 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Example/Scenes/P2PExample.unity
+    guid: fb64a8c57be1967449ad06d577f5bf88
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
