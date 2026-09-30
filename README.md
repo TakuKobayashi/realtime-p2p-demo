@@ -6,7 +6,7 @@
 > `RealtimeP2PKit > Connection Settings` では Local / Remote をプルダウンで選び、
 > シグナリング WebSocket URL と複数の STUN URL を設定します。Player ビルドで使う環境も選択してください。
 > マッチングと HTTP クライアントはライブラリには含まず、`unity-client/Assets/Example/Matchmaking/` にあります。
-> 以下に残る旧 `Packages/com.phantomcatworks.realtimep2p/` と NuGetForUnity の記述は移植前の構成です。
+> `Assets/RealtimeP2PKit/` と `Assets/Example/` の境界が Package に含めるかどうかの境界です。
 
 
 1対1リアルタイム対戦ゲームの実証実験。座標(xyz)をWebRTC DataChannel経由でP2P直接送信し、
@@ -54,9 +54,8 @@ server/                     単一のCloudflare Worker (Hono + Drizzle + D1 + pa
   migrations/                D1マイグレーション
 
 unity-client/
-  Packages/com.phantomcatworks.realtimep2p/   再利用可能なP2Pライブラリ (UPM embedded package)
-                                               → 詳細なAPIリファレンスは同フォルダのREADME.md
-  Assets/Scripts/Demo/                        ライブラリを使うサンプルコード(Scene/Prefabは未同梱、後述)
+  Assets/RealtimeP2PKit/                      配布するライブラリ本体（Runtime / Editor）
+  Assets/Example/                             Packageに含めない動作例（Script / Scene / Prefab / Matchmaking）
 ```
 
 ## 1. サーバーのセットアップ
@@ -123,21 +122,20 @@ NativeWebSocketのDLLが参照されない状態になっていました(Package
 Unityの Console にエラーが出ていない状態が正常です。エラーが残っている場合は
 `Assets > Reimport All` や Unity再起動で解消することがあります(NuGetForUnityの新規DLL認識のため)。
 
-### 2-4. デモSceneを生成する
+### 2-4. Example Sceneを使う
 
-このリポジトリには **`.unity`シーンや`.prefab`は同梱していません**(バイナリ/YAMLの生成物を
-手で編集するのは壊れやすいため、コードから再現できるようにしています)。
-メニュー `RealtimeP2PKit > Build Demo Scene` を実行すると、以下が自動生成されます:
+このリポジトリには動作例のSceneとPrefabを同梱しています。必要なら
+メニュー `RealtimeP2PKit > Build Example Scene` で再生成できます:
 
-- `Assets/Scenes/P2PDemo.unity`
-- `Assets/Prefabs/LocalPlayer.prefab`, `Assets/Prefabs/RemotePlayer.prefab`
-- `Assets/Resources/P2PConfig.asset`(未作成の場合)
+- `Assets/Example/Scenes/P2PExample.unity`
+- `Assets/Example/Prefabs/LocalPlayer.prefab`, `Assets/Example/Prefabs/RemotePlayer.prefab`
+- `Assets/Example/Config/P2PConfig.asset`(未作成の場合)
 
 接続先(サーバーのURL)は`P2PConfig`アセットではなく、次の「2-5. 接続先(Local/Remote)を設定する」で
 説明するEditorツールで設定します。
 
 自分でSceneを組む場合は、README末尾の「手動でSceneを組む場合」を参照してください
-(`Build Demo Scene`が生成する内容と同じものを手作業で再現する手順です)。
+(`Build Example Scene`が生成する内容と同じものを手作業で再現する手順です)。
 
 ### 2-5. 接続先(Local/Remote)を設定する
 
@@ -148,7 +146,6 @@ Editor拡張ウィンドウで、以下を設定できます:
   **切り替えると、その下に表示される入力欄が選択中の環境のものだけに差し替わります**
   (LocalとRemoteが同時に並んで表示されることはありません)。
 - 選択中の環境について
-  - Web API URL(マッチング、例: `http://localhost:8787` / `https://realtime-p2p-server.<account>.workers.dev`)
   - Signaling WebSocket URL(例: `ws://localhost:8787` / `wss://realtime-p2p-server.<account>.workers.dev`)
   - STUN Server URLs(**上から順に使用される複数エントリのリスト**。↑↓ボタンで並び替え、＋で追加、✕で削除)
 
@@ -166,7 +163,6 @@ Editor拡張ウィンドウで、以下を設定できます:
 
 | | Local(既定値) | Remote(既定値) |
 |---|---|---|
-| Web API URL | `http://localhost:8787` | `https://realtime-p2p-server.example.workers.dev`(要変更) |
 | Signaling WebSocket URL | `ws://localhost:8787` | `wss://realtime-p2p-server.example.workers.dev`(要変更) |
 | STUN Server URLs | Google / Mozilla の公開STUN(下記) | 同左 |
 
@@ -178,7 +174,7 @@ stun:stun.services.mozilla.com:3478
 
 ### 2-6. 実行して動作確認
 
-2台の実機、または `ParrelSync` 等で複製した2つのUnityエディタで `P2PDemo` シーンを再生します。
+2台の実機、または `ParrelSync` 等で複製した2つのUnityエディタで `P2PExample` シーンを再生します。
 2人がキューに入ると自動的にマッチングし、WebRTC接続が確立してcubeが同期し始めます。
 Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出るので、`P2PConfig.LogLevel`を
 `Info`にしておくと接続フローを追いやすいです。ログは共有ラッパーを介さず各呼び出し箇所で
@@ -190,37 +186,37 @@ Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出�
 
 ## ライブラリの使い方(クイックスタート・APIリファレンス)
 
-`unity-client/Packages/com.phantomcatworks.realtimep2p` の使い方は、詳細を
+`unity-client/Assets/RealtimeP2PKit` の使い方は、詳細を
 **同フォルダの README.md** に集約しています。最短の使い方は次の5行です:
 
 ```csharp
 P2PManager.Instance.Initialize(myConfig);
 P2PManager.Instance.RegisterPacketHandler<MyPacket>(1, packet => { ... });
 P2PManager.Instance.DataChannelReady += () => { /* 対戦開始 */ };
-P2PManager.Instance.StartMatchmaking(myPlayerId);
+await P2PManager.Instance.ConnectToRoomAsync(playerId, roomId, opponentId, isInitiator);
 P2PManager.Instance.Send(1, new MyPacket { ... });
 ```
 
 ## 手動でSceneを組む場合
 
-`RealtimeP2PKit > Build Demo Scene` を使わず自分でSceneを構築する場合、必要なGameObjectは
+`RealtimeP2PKit > Build Example Scene` を使わず自分でSceneを構築する場合、必要なGameObjectは
 以下の3つだけです(いずれも空のSceneに配置):
 
-1. **`DemoBootstrap`** という名前のGameObjectを作成し、`DemoBootstrap`コンポーネントを追加。
+1. **`ExampleBootstrap`** という名前のGameObjectを作成し、`ExampleBootstrap`コンポーネントを追加。
    Inspectorで以下を割り当てる:
    - `Config` : `P2PConfig`アセット(`Assets > Create > RealtimeP2PKit > P2P Config`で作成。
      接続先URLはこのアセットではなく`RealtimeP2PKit > Connection Settings`で設定します)
-   - `Local Player Prefab` : `DemoPlayerController`コンポーネントを付けたCubeのPrefab
+   - `Local Player Prefab` : `ExamplePlayerController`コンポーネントを付けたCubeのPrefab
    - `Remote Player Prefab` : 何もスクリプトを付けていないCubeのPrefab
-     (`DemoRemotePlayerSync`は`DemoBootstrap`が実行時に自動でAddComponentします)
+     (`ExampleRemotePlayerSync`は`ExampleBootstrap`が実行時に自動でAddComponentします)
 2. カメラとライトは通常のSceneと同様(`Main Camera` + `Directional Light`)。
 3. 床は任意(Plane等、見た目のためだけ)。
 
-Play再生すると`DemoBootstrap.Start()`がランダムなplayerIdでマッチングを開始し、
+Play再生すると`ExampleBootstrap.Start()`がランダムなplayerIdでマッチングを開始し、
 対戦相手が見つかり次第、自動で2体のCubeをInstantiateしてP2P同期を開始します
-(`Assets/Scripts/Demo/DemoBootstrap.cs`の中身がそのままロジックです)。
+(`Assets/Example/ExampleBootstrap.cs`の中身がそのままロジックです)。
 
-自作ゲームに組み込む場合は`DemoBootstrap`をそのまま参考にしつつ、`P2PManager.Instance`を
+自作ゲームに組み込む場合は`ExampleBootstrap`をそのまま参考にしつつ、`P2PManager.Instance`を
 直接呼び出すのが一番シンプルです(パッケージ側READMEのAPIリファレンス参照)。
 
 ## 既知の制約・注意点
@@ -240,7 +236,7 @@ Play再生すると`DemoBootstrap.Start()`がランダムなplayerIdでマッチ
 
 ## ライブラリの再利用について
 
-`unity-client/Packages/com.phantomcatworks.realtimep2p` はWebRTC接続〜データ交換の流れを
-汎用化した独立パッケージです。エントリーポイントは `P2PManager` シングルトンのみで、
-マッチング/シグナリング/WebRTC/シリアライズの各層はインターフェース越しに差し替え可能です。
+`unity-client/Assets/RealtimeP2PKit` はWebRTC接続〜データ交換の流れを
+汎用化したライブラリです。`Assets/Example` のスクリプト、Scene、Prefab、マッチング処理は
+配布対象に含めません。エントリーポイントは `P2PManager` シングルトンです。
 詳細・全メソッドのリファレンスは同フォルダの README.md を参照してください。

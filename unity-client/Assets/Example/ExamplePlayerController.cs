@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Demo
+namespace PhantomCatWorks.RealtimeP2PKit.Example
 {
     /// <summary>
     /// Drives the local player's cube with WASD/arrow input and pushes its
@@ -8,7 +8,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo
     /// Note this script only ever talks to P2PManager.Instance - it never touches
     /// WebRTC, PartyKit or MessagePack directly, which is the point of the library.
     /// </summary>
-    public class DemoPlayerController : MonoBehaviour
+    public class ExamplePlayerController : MonoBehaviour
     {
         public const byte PositionPacketId = 1;
 

@@ -1,12 +1,12 @@
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Demo
+namespace PhantomCatWorks.RealtimeP2PKit.Example
 {
     /// <summary>
     /// Receives the opponent's PositionPacket via P2PManager and smoothly moves
     /// a proxy cube toward it. Registered as the handler for PositionPacketId.
     /// </summary>
-    public class DemoRemotePlayerSync : MonoBehaviour
+    public class ExampleRemotePlayerSync : MonoBehaviour
     {
         [SerializeField] private float _lerpSpeed = 12f;
 
@@ -16,19 +16,19 @@ namespace PhantomCatWorks.RealtimeP2PKit.Demo
         private void OnEnable()
         {
             P2PManager.Instance.RegisterPacketHandler<PositionPacket>(
-                DemoPlayerController.PositionPacketId, OnPositionReceived);
+                ExamplePlayerController.PositionPacketId, OnPositionReceived);
         }
 
         private void OnDisable()
         {
-            P2PManager.Instance.UnregisterPacketHandler(DemoPlayerController.PositionPacketId);
+            P2PManager.Instance.UnregisterPacketHandler(ExamplePlayerController.PositionPacketId);
         }
 
         private void OnPositionReceived(PositionPacket packet)
         {
             _targetPosition = new Vector3(packet.X, packet.Y, packet.Z);
             _hasTarget = true;
-            Debug.Log($"[Demo] remote position received: {packet}");
+            Debug.Log($"[P2P Example] remote position received: {packet}");
         }
 
         private void Update()

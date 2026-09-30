@@ -1,12 +1,12 @@
 using MessagePack;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Demo
+namespace PhantomCatWorks.RealtimeP2PKit.Example
 {
     /// <summary>
-    /// Example application-level packet: this demo simply syncs each player's
+    /// Example application-level packet: this scene syncs each player's
     /// world-space position every tick over the WebRTC data channel via
-    /// P2PManager.Send/RegisterPacketHandler. This type lives in the demo project,
-    /// NOT in the RealtimeP2PKit package, because packet contents are game-specific -
+    /// P2PManager.Send/RegisterPacketHandler. This type lives outside the package
+    /// because packet contents are game-specific -
     /// the library itself never assumes anything about what you send over it.
     /// </summary>
     [MessagePackObject]
