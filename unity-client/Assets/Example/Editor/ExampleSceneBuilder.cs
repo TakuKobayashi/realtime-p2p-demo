@@ -50,7 +50,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Editor
             const string scenePath = "Assets/Example/Scenes/P2PExample.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(scenePath, true) };
-            Debug.Log("[P2P Example] Built " + scenePath + ". Configure signaling/STUN in Connection Settings and the matchmaking API URL on ExampleBootstrap.");
+            Debug.Log("[P2P Example] Built " + scenePath + ". Configure signaling/STUN in Connection Settings and HTTP/Lobby WebSocket in Example Connection Settings.");
         }
 
         private static void ApplyColor(GameObject go, Color color)

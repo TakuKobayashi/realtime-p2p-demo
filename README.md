@@ -6,6 +6,7 @@
 > `RealtimeP2PKit > Connection Settings` では Local / Remote をプルダウンで選び、
 > シグナリング WebSocket URL と複数の STUN URL を設定します。Player ビルドで使う環境も選択してください。
 > マッチングと HTTP クライアントはライブラリには含まず、`unity-client/Assets/Example/Matchmaking/` にあります。
+> `RealtimeP2PKit > Example Connection Settings` でマッチング用 HTTP と Lobby WebSocket のベース URL を設定します。
 > `Assets/RealtimeP2PKit/` と `Assets/Example/` の境界が Package に含めるかどうかの境界です。
 
 
@@ -149,15 +150,24 @@ Editor拡張ウィンドウで、以下を設定できます:
   - Signaling WebSocket URL(例: `ws://localhost:8787` / `wss://realtime-p2p-server.<account>.workers.dev`)
   - STUN Server URLs(**上から順に使用される複数エントリのリスト**。↑↓ボタンで並び替え、＋で追加、✕で削除)
 
-  を入力し、**Save Local** / **Save Remote**(選択中の環境名がボタンに表示されます)ボタンで
-  PlayerPrefsに保存します。
+  を入力し、**Save Local / Remote Settings** ボタンで Resources アセットに保存します。
 - **Network Logging**: HTTP/WebSocket/WebRTC DataChannelの送受信内容をそのままログ出力する
   トグル(詳細は後述)。
 
-**この画面での設定はすべてUnityEditor上でのみ有効です。** ビルドしたアプリは常に
-`P2PEndpoints`にハードコードされた`DefaultRemote*`の値を使用し、PlayerPrefsは一切参照しません
-(逆に言うと、ビルドに含める本番用のURLは`P2PEndpoints.cs`の`DefaultRemote*`定数を直接書き換えて
-コミットする必要があります)。
+接続先は Resources アセットに保存され、Player ビルドにも含まれます。
+Editor の Local / Remote 選択は PlayerPrefs に記録されます。ビルド時は
+`Connection Settings` の **Player build environment** で使用する環境を選択してください。
+
+Example のマッチング接続先は `RealtimeP2PKit > Example Connection Settings` で設定します。
+Local / Remote ごとに **HTTP Base URL**（例: `http://localhost:8787`）と
+**WebSocket Base URL**（例: `ws://localhost:8787`）を入力し、
+**Save Local / Remote Settings** で保存してください。Remote はデプロイ先の `https://...` / `wss://...` に変更してください。
+HTTP には `/api/matchmaking/...`、WebSocket には `/parties/lobby/{playerId}` が自動で追加されるため、ベース URL を指定します。
+設定アセットは `Assets/Example/Resources/ExampleConnectionSettings.asset` にあり、パッケージ外に置かれます。
+環境選択はパッケージと共通で、Player も **Player build environment** に従います。
+`ExampleBootstrap` のキューマッチング、および `ExampleMatchmakingFlow` のルーム作成・一覧・参加はこの HTTP 設定を使います
+（API 引数で URL を明示した場合はその値を使います）。WebRTC のルームシグナリングと STUN は引き続き
+パッケージの `Connection Settings` で設定します。同じサーバーを使う構成では、両 Window の WebSocket 接続先を揃えてください。
 
 初期値は次の通りです:
 

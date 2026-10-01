@@ -23,10 +23,10 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
         private WebSocket _ws;
 
         /// <param name="baseWsUrl">
-        /// (see P2PEndpoints.GetSignalingWebSocketUrl()). "/parties/lobby/{playerId}" is appended.</param>
+        /// (see ExampleEndpoints.GetWebSocketBaseUrl()). "/parties/lobby/{playerId}" is appended.</param>
         public LobbyListener(string baseWsUrl)
         {
-            _baseWsUrl = baseWsUrl.TrimEnd('/');
+            _baseWsUrl = baseWsUrl.Trim().TrimEnd('/');
         }
 
         public async Task ConnectAsync(string playerId)

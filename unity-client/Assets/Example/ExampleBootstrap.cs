@@ -7,7 +7,6 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example
     public sealed class ExampleBootstrap : MonoBehaviour
     {
         [SerializeField] private P2PConfig _config;
-        [SerializeField] private string _matchmakingApiUrl = "http://localhost:8787";
         [SerializeField] private GameObject _localPlayerPrefab;
         [SerializeField] private GameObject _remotePlayerPrefab;
 
@@ -19,7 +18,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example
             manager.ConnectionClosed += OnConnectionClosed;
             manager.DataChannelReady += OnDataChannelReady;
             gameObject.AddComponent<ExampleMatchmakingFlow>()
-                .StartQueue(Guid.NewGuid().ToString("N"), _matchmakingApiUrl);
+                .StartQueue(Guid.NewGuid().ToString("N"));
         }
 
         private void OnDataChannelReady()
