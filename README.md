@@ -217,6 +217,7 @@ P2PManager.Instance.Send(1, new MyPacket { ... });
 以下の3つだけです(いずれも空のSceneに配置):
 
 1. **`ExampleBootstrap`** という名前のGameObjectを作成し、`ExampleBootstrap`コンポーネントを追加。
+   必須の `ExampleMatchmakingFlow` も同じ GameObject に自動で追加されます（シーンに保存され、実行時は既存のコンポーネントを使います）。
    Inspectorで以下を割り当てる:
    - `Config` : 任意。未指定ならデフォルト値を使用。変更する場合は `P2PConfig`アセットを割り当てます
      (`Assets > Create > RealtimeP2PKit > P2P Config`で作成。

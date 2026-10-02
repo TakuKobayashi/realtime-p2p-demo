@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit.Example
 {
+    [RequireComponent(typeof(ExampleMatchmakingFlow))]
     public sealed class ExampleBootstrap : MonoBehaviour
     {
         [Tooltip("Optional. Leave empty to use the built-in data-channel and logging defaults.")]
@@ -18,8 +19,8 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example
             manager.StateChanged += OnStateChanged;
             manager.ConnectionClosed += OnConnectionClosed;
             manager.DataChannelReady += OnDataChannelReady;
-            gameObject.AddComponent<ExampleMatchmakingFlow>()
-                .StartQueue(Guid.NewGuid().ToString("N"));
+            ExampleMatchmakingFlow machingFlow = GetComponent<ExampleMatchmakingFlow>();
+            machingFlow.StartQueue(Guid.NewGuid().ToString("N"));
         }
 
         private void OnDataChannelReady()
