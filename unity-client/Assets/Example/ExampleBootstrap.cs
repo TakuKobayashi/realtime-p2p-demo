@@ -6,6 +6,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example
 {
     public sealed class ExampleBootstrap : MonoBehaviour
     {
+        [Tooltip("Optional. Leave empty to use the built-in data-channel and logging defaults.")]
         [SerializeField] private P2PConfig _config;
         [SerializeField] private GameObject _localPlayerPrefab;
         [SerializeField] private GameObject _remotePlayerPrefab;

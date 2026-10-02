@@ -200,12 +200,16 @@ Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出�
 **同フォルダの README.md** に集約しています。最短の使い方は次の5行です:
 
 ```csharp
-P2PManager.Instance.Initialize(myConfig);
+P2PManager.Instance.Initialize();
 P2PManager.Instance.RegisterPacketHandler<MyPacket>(1, packet => { ... });
 P2PManager.Instance.DataChannelReady += () => { /* 対戦開始 */ };
 await P2PManager.Instance.ConnectToRoomAsync(playerId, roomId, opponentId, isInitiator);
 P2PManager.Instance.Send(1, new MyPacket { ... });
 ```
+
+`P2PConfig` は任意です。`Initialize()` または `Initialize(null)` は、チャンネル名 `gameplay`、
+非Reliable（順序保証なし・再送なし）、ログレベル `Info` で初期化します。
+変更したい場合だけ `Initialize(myConfig)` に設定アセットを渡してください。
 
 ## 手動でSceneを組む場合
 
@@ -214,7 +218,8 @@ P2PManager.Instance.Send(1, new MyPacket { ... });
 
 1. **`ExampleBootstrap`** という名前のGameObjectを作成し、`ExampleBootstrap`コンポーネントを追加。
    Inspectorで以下を割り当てる:
-   - `Config` : `P2PConfig`アセット(`Assets > Create > RealtimeP2PKit > P2P Config`で作成。
+   - `Config` : 任意。未指定ならデフォルト値を使用。変更する場合は `P2PConfig`アセットを割り当てます
+     (`Assets > Create > RealtimeP2PKit > P2P Config`で作成。
      接続先URLはこのアセットではなく`RealtimeP2PKit > Connection Settings`で設定します)
    - `Local Player Prefab` : `ExamplePlayerController`コンポーネントを付けたCubeのPrefab
    - `Remote Player Prefab` : 何もスクリプトを付けていないCubeのPrefab

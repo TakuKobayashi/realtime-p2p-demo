@@ -11,7 +11,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
     ///
     /// Typical usage from any other script:
     /// <code>
-    ///   P2PManager.Instance.Initialize(config);
+    ///   P2PManager.Instance.Initialize(); // Pass a P2PConfig only to customize the defaults.
     ///   P2PManager.Instance.RegisterPacketHandler&lt;PositionPacket&gt;(1, OnPosition);
     ///   P2PManager.Instance.DataChannelReady += () => ...;
     ///   await P2PManager.Instance.ConnectToRoomAsync(myPlayerId, roomId, peerId, true);
@@ -61,6 +61,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         public bool IsOnlineMatch { get; private set; }
 
         private P2PConfig _config;
+        private P2PConfig _defaultConfig;
         private PartyKitSignalingClient _signalingClient;
         private WebRtcPeerConnection _peerConnection;
         private PacketRouter _packetRouter;
@@ -86,7 +87,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         /// Optionally supplies data-channel settings. Built-in defaults are used
         /// when no explicit config is supplied.
         /// </summary>
-        public void Initialize(P2PConfig config)
+        public void Initialize(P2PConfig config = null)
         {
             Initialize(config, P2PEndpoints.GetCurrentEnvironment());
         }
@@ -96,9 +97,12 @@ namespace PhantomCatWorks.RealtimeP2PKit
         {
             if (config == null)
             {
-                config = ScriptableObject.CreateInstance<P2PConfig>();
-                if (P2PLog.ShouldLog(P2PLogLevel.Warn))
-                    Debug.LogWarning("[RealtimeP2PKit][P2PManager] no P2PConfig supplied; using built-in defaults");
+                if (_defaultConfig == null)
+                {
+                    _defaultConfig = ScriptableObject.CreateInstance<P2PConfig>();
+                    _defaultConfig.hideFlags = HideFlags.HideAndDontSave;
+                }
+                config = _defaultConfig;
             }
 
             _config = config;
@@ -156,7 +160,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         private void EnsureInitialized()
         {
             if (_packetRouter != null && _config != null) return;
-            Initialize(null);
+            Initialize();
         }
 
         /// <summary>
@@ -370,6 +374,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             }
             _peerConnection?.Dispose();
             _signalingClient?.Dispose();
+            if (_defaultConfig != null) Destroy(_defaultConfig);
         }
     }
 }
