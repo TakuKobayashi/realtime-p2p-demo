@@ -203,6 +203,22 @@ stun:stun.services.mozilla.com:3478
 作成画面の定員は自分を含む人数で、既定は4、0は無制限です。Inspectorの `_defaultMaxPlayers` でも初期値を変更できます。
 ルームの作成者が退出しても残りの参加者は通信を継続します。最後の参加者の退出時だけRoomを削除します。
 P2PExampleを直接再生した場合はMatchingRoomExampleへ戻ります。
+
+#### Multiplayer Play Modeで非フォーカス時の通信を確認
+
+`Run In Background` を有効にし、Example起動時にも `Application.runInBackground = true` を設定しています。
+Lobbyの更新、WebRTC接続、約20Hzの座標送信、受信したCubeの描画は、フォーカスを外しても継続します。
+キー入力による移動はフォーカス中の画面でのみ行います。
+
+1. `MatchingRoomExample` をMultiplayer Play Modeの4画面で再生し、全員で同じRoomへ参加します。
+2. 各画面が `P2P接続数: 3` となり、自分と相手3人のCubeが表示されることを確認します。
+3. 1画面にフォーカスを置いたままWASDで移動し、他の3画面のCubeも動くことを確認します。
+4. Editor / Development Buildでは画面下部に通信確認用の表示が出ます。非フォーカスの画面で
+   `Focus: False`、`Run in Background: True` のまま、相手ごとの `RX` (受信数) が増えることを確認します。
+   移動を止めても座標は送信されるため、非フォーカスの相手からの `RX` も増え続け、最終受信からの秒数は小さい値を保ちます。
+
+変更前からPlay中の場合は、一度停止して再生し直してください。
+
 Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出るので、`P2PConfig.LogLevel`を
 `Info`にしておくと接続フローを追いやすいです。ログは共有ラッパーを介さず各呼び出し箇所で
 直接`Debug.Log`/`LogWarning`/`LogError`を呼んでいるので、Consoleでログ行をダブルクリックすると

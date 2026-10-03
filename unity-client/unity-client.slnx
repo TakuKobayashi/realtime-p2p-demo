@@ -1,6 +1,6 @@
-<Solution>
+﻿<Solution>
   <Project Path="net.taptappun.RealtimeP2PKit.csproj" />
-  <Project Path="net.taptappun.RealtimeP2PKit.Editor.csproj" />
   <Project Path="net.taptappun.RealtimeP2PKit.Example.csproj" />
   <Project Path="net.taptappun.RealtimeP2PKit.Example.Editor.csproj" />
+  <Project Path="net.taptappun.RealtimeP2PKit.Editor.csproj" />
 </Solution>

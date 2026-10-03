@@ -21,6 +21,13 @@ namespace net.taptappun.RealtimeP2PKit.Example
         private bool _exiting;
         private string _status = "Roomに接続中...";
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        private static void EnableBackgroundExecution()
+        {
+            // Also applies to Multiplayer Play Mode virtual players, before lobby/room setup.
+            Application.runInBackground = true;
+        }
+
         private async void Start()
         {
             _view.LeaveRequested += OnLeaveRequested;
@@ -94,6 +101,21 @@ namespace net.taptappun.RealtimeP2PKit.Example
             }
             _view.SetStatus(_status, _exiting);
         }
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        private void OnGUI()
+        {
+            var lines = $"Focus: {Application.isFocused}   Run in Background: {Application.runInBackground}";
+            foreach (var entry in _remotePlayers)
+            {
+                var remote = entry.Value;
+                var age = remote.ReceivedPacketCount == 0 ? "waiting" : $"{Time.realtimeSinceStartup - remote.LastReceivedAt:0.0}s ago";
+                lines += $"\nPlayer {entry.Key}: RX {remote.ReceivedPacketCount}   {age}";
+            }
+            var height = 30f + _remotePlayers.Count * 22f;
+            GUI.Box(new Rect(10f, Screen.height - height - 10f, Mathf.Min(520f, Screen.width - 20f), height), GUIContent.none);
+            GUI.Label(new Rect(18f, Screen.height - height - 6f, Mathf.Min(504f, Screen.width - 36f), height), lines);
+        }
+#endif
         private void OnDestroy()
         {
             if (_view != null) _view.LeaveRequested -= OnLeaveRequested;

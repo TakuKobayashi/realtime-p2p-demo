@@ -19,7 +19,10 @@ namespace net.taptappun.RealtimeP2PKit.Example
 
         private void Update()
         {
-            var input = new Vector3(Input.GetAxis("Horizontal"), 0f, Input.GetAxis("Vertical"));
+            // Keep sending while unfocused, but do not move using stale/shared keyboard input.
+            var input = Application.isFocused
+                ? new Vector3(Input.GetAxis("Horizontal"), 0f, Input.GetAxis("Vertical"))
+                : Vector3.zero;
             transform.position += input * (_moveSpeed * Time.deltaTime);
 
             _sendTimer += Time.deltaTime;
