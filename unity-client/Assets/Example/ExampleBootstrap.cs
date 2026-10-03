@@ -42,7 +42,8 @@ namespace net.taptappun.RealtimeP2PKit.Example
                 _manager.RegisterPacketHandler<PositionPacket>(ExamplePlayerController.PositionPacketId, OnPositionReceived);
                 _localPlayer = Instantiate(_localPlayerPrefab, new Vector3(UnityEngine.Random.Range(-4f, 4f), 0.5f, UnityEngine.Random.Range(-4f, 4f)), Quaternion.identity);
                 _localPlayer.name = $"Player {ExampleRoomSession.Player.id} (Local)";
-                await _manager.ConnectToRoomAsync(ExampleRoomSession.Player.id, ExampleRoomSession.Room.id,
+                await _manager.ConnectToRoomAsync(ExampleRoomSession.Player.id,
+                    ExampleRoomSession.Room.id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ExampleRoomSession.Player.token, ExampleRoomSession.WebSocketBaseUrl);
                 if (!_exiting) _status = "WASD / 矢印キーで移動できます。参加者を待っています。";
             }

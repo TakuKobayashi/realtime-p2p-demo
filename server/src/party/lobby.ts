@@ -39,9 +39,9 @@ export class Lobby extends Server<Env> {
       connection.send(JSON.stringify({ type: 'pong' }));
       return;
     }
-    const cursor = typeof message.lastRoomId === 'string' && /^(0|[1-9]\d*)$/.test(message.lastRoomId) ? Number(message.lastRoomId) : NaN;
-    if (message.type !== 'subscribe' || !Number.isSafeInteger(cursor)) {
-      connection.close(4000, 'send subscribe with a non-negative lastRoomId string');
+    const cursor = message.lastRoomId;
+    if (message.type !== 'subscribe' || typeof cursor !== 'number' || !Number.isSafeInteger(cursor) || cursor < 0) {
+      connection.close(4000, 'send subscribe with a non-negative integer lastRoomId');
       return;
     }
     await this.enqueue(async () => {
@@ -59,10 +59,10 @@ export class Lobby extends Server<Env> {
     const rooms = await listRooms(this.env.DB, cursor);
     for (const connection of active) {
       if (connection.readyState !== WebSocket.OPEN) continue;
-      const delta = rooms.filter((room) => Number(room.id) > connection.state!.lastRoomId);
+      const delta = rooms.filter((room) => room.id > connection.state!.lastRoomId);
       if (delta.length === 0) continue;
       connection.send(JSON.stringify({ type: 'rooms-created', rooms: delta }));
-      connection.setState({ lastRoomId: Number(delta[delta.length - 1].id) });
+      connection.setState({ lastRoomId: delta[delta.length - 1].id });
     }
   }
 

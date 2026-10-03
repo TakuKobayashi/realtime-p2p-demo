@@ -12,7 +12,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
         [SerializeField] private Button _leaveButton;
         public event Action LeaveRequested;
         private void Awake() => _leaveButton.onClick.AddListener(Leave);
-        public void SetSummary(string roomId, int count, int maximum, string playerId, int connectedPeers)
+        public void SetSummary(long roomId, int count, int maximum, string playerId, int connectedPeers)
         {
             SetText(_roomText, $"Room {roomId}    {count} / {(maximum == 0 ? "無制限" : maximum.ToString())}");
             SetText(_playerText, $"Player {playerId}    P2P接続数: {connectedPeers}");

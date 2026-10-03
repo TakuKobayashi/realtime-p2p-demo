@@ -54,7 +54,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
                     _rooms = rooms ?? new List<MachingRoom>();
                     _lastRoomId = 0;
                     foreach (var room in _rooms)
-                        if (long.TryParse(room.id, out var id)) _lastRoomId = Math.Max(_lastRoomId, id);
+                        _lastRoomId = Math.Max(_lastRoomId, room.id);
                     _hasSnapshot = true;
                     _view.ShowRooms(_rooms);
                     _status = "新しいRoomの通知に接続中...";
@@ -74,9 +74,9 @@ namespace net.taptappun.RealtimeP2PKit.Example
                 if (_destroyed || _lobby != listener) return;
                 foreach (var room in rooms)
                 {
-                    if (!long.TryParse(room.id, out var id) || id <= _lastRoomId) continue;
+                    if (room.id <= _lastRoomId) continue;
                     _rooms.Add(room);
-                    _lastRoomId = id;
+                    _lastRoomId = room.id;
                 }
                 _view.ShowRooms(_rooms);
             };
@@ -94,7 +94,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
                 if (!_busy) _status = reason;
                 UpdateView();
             };
-            listener.Connect(_lastRoomId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            listener.Connect(_lastRoomId);
         }
         private void StopLobby() { var listener = _lobby; _lobby = null; listener?.Dispose(); }
         private async Task EnterAsync(MachingRoom room = null)

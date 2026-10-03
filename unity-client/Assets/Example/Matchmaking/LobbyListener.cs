@@ -29,7 +29,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
         public LobbyListener(string baseWsUrl)
             => _url = baseWsUrl.Trim().TrimEnd('/') + "/parties/lobby/rooms";
 
-        public void Connect(string lastRoomId)
+        public void Connect(long lastRoomId)
         {
             _lastReceived = Time.realtimeSinceStartup;
             _nextPing = _lastReceived + 15f;

@@ -16,7 +16,7 @@ export async function listRooms(db: D1Database, afterId = 0) {
     .bind(Date.now(), afterId)
     .all<{ id: number; max_players: number | null; created_at: number; member_count: number }>();
   return rooms.results.map((room) => ({
-    id: String(room.id),
+    id: room.id,
     maxPlayers: room.max_players ?? 0,
     memberCount: room.member_count,
     createdAt: room.created_at,
@@ -63,7 +63,7 @@ export async function roomResponse(db: D1Database, roomId: number) {
     .bind(Date.now(), roomId)
     .first<{ id: number; max_players: number | null; created_at: number; member_count: number }>();
   if (!room) return null;
-  return { id: String(room.id), maxPlayers: room.max_players ?? 0, memberCount: room.member_count, createdAt: room.created_at };
+  return { id: room.id, maxPlayers: room.max_players ?? 0, memberCount: room.member_count, createdAt: room.created_at };
 }
 export async function controlRoom(env: Env, roomId: number, path: string, body?: string) {
   // partyserver persists its name fallback for hibernation on older workerd runtimes.

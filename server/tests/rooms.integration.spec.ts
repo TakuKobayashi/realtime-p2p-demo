@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 
 type Player = { id: string; token: string };
-type Room = { id: string; maxPlayers: number; memberCount: number; createdAt: number };
+type Room = { id: number; maxPlayers: number; memberCount: number; createdAt: number };
 type RequestBody = Record<string, string | number>;
 type MessagePayloads = {
   "rooms-created": { rooms: Room[] };
@@ -52,7 +52,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     return result;
   }
   const credentials = (player: Player) => ({ playerId: player.id, token: player.token });
-  async function discover(lastRoomId: string) {
+  async function discover(lastRoomId: number) {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/parties/lobby/rooms`);
     sockets.push(ws);
     const messages: Message[] = [];
@@ -70,7 +70,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     await wait("subscribed");
     return { ws, messages, wait };
   }
-  async function connect(roomId: string, player: Player) {
+  async function connect(roomId: number, player: Player) {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/parties/room/${roomId}?playerId=${player.id}&token=${player.token}`);
     sockets.push(ws);
     const messages: Message[] = [];
@@ -109,6 +109,14 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     }
     assert.ok(ready, output);
 
+    // No room has ever been created: HTTP returns [] and the lobby can subscribe.
+    assert.deepEqual(await api("/rooms"), []);
+    const coldBrowser = await discover(0);
+    assert.strictEqual(coldBrowser.messages.length, 0);
+    const emptyReconnect = await discover(0);
+    assert.strictEqual(emptyReconnect.messages.length, 0);
+    emptyReconnect.ws.close();
+
     const players: Player[] = [];
     for (let i = 0; i < 8; i++) players.push(await api("/players", {}, 201));
     assert.deepEqual(players.map((p) => p.id), ["1", "2", "3", "4", "5", "6", "7", "8"]);
@@ -116,8 +124,10 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     await api("/rooms", { ...credentials(a), token: "invalid", maxPlayers: 3 }, 401);
     await api("/rooms", { ...credentials(a), maxPlayers: -1 }, 400);
     const room = await api("/rooms", { ...credentials(a), maxPlayers: 3 }, 201);
-    assert.strictEqual(room.id, "1");
+    assert.strictEqual(room.id, 1);
     assert.strictEqual(room.memberCount, 1); // Creator is listed before anyone else arrives.
+    assert.deepEqual((await coldBrowser.wait("rooms-created")).rooms.map((r) => r.id), [room.id]);
+    coldBrowser.ws.close();
     assert.strictEqual((await api("/rooms"))[0].id, room.id);
     const browser = await discover(room.id);
     await delay(100);
@@ -169,7 +179,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
 
     // No fixed two-player limit: admit five in an unlimited room.
     const unlimited = await api("/rooms", { ...credentials(a), maxPlayers: 0 }, 201);
-    assert.strictEqual(unlimited.id, "2"); // Deleted IDs are not reused.
+    assert.strictEqual(unlimited.id, 2); // Deleted IDs are not reused.
     assert.deepEqual((await browser.wait("rooms-created")).rooms.map((r) => r.id), [unlimited.id]);
     // The room created between HTTP and socket subscription is caught up exactly once.
     const catchUp = await discover(room.id);
@@ -191,10 +201,18 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     for (const player of [a, b, c, d]) await api(`/rooms/${limited.id}/leave`, credentials(player));
     assert.deepEqual(await api("/rooms"), []);
 
+    // Newness is a numeric comparison, including RoomId 9 -> 10.
+    for (let id = 4; id <= 12; id++) {
+      const next = await api("/rooms", { ...credentials(a), maxPlayers: 0 }, 201);
+      assert.strictEqual(next.id, id);
+      assert.deepEqual((await reconnected.wait("rooms-created")).rooms.map((r) => r.id), [id]);
+      await api(`/rooms/${next.id}/leave`, credentials(a));
+    }
+
     // No socket ever opened: reservation expiry + alarm must physically delete the room.
     const abandoned = await api("/rooms", { ...credentials(a), maxPlayers: 0 }, 201);
     const silentRoom = await api("/rooms", { ...credentials(players[5]), maxPlayers: 0 }, 201);
-    const created = new Set<string>();
+    const created = new Set<number>();
     while (created.size < 2) {
       for (const room of (await reconnected.wait("rooms-created")).rooms) {
         assert.ok(!created.has(room.id), "new room must not be duplicated");
@@ -204,7 +222,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     assert.deepEqual(created, new Set([abandoned.id, silentRoom.id]));
     const latest = await discover(silentRoom.id);
     assert.strictEqual(latest.messages.length, 0);
-    const emptyCursor = await discover("0");
+    const emptyCursor = await discover(0);
     assert.deepEqual((await emptyCursor.wait("rooms-created")).rooms.map((r) => r.id), [abandoned.id, silentRoom.id]);
     await delay(100);
     assert.strictEqual(reconnected.messages.length, 0);

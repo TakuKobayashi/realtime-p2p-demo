@@ -16,7 +16,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
         [SerializeField] private Text _emptyText;
         [SerializeField] private RectTransform _roomContent;
         [SerializeField] private ExampleRoomRow _roomRowPrefab;
-        private readonly Dictionary<string, ExampleRoomRow> _rows = new();
+        private readonly Dictionary<long, ExampleRoomRow> _rows = new();
         private Action _create;
         private Action _refresh;
         private Action<MachingRoom> _join;
@@ -43,7 +43,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
         }
         public void ShowRooms(IReadOnlyList<MachingRoom> rooms)
         {
-            var ids = new HashSet<string>(rooms.Select(room => room.id));
+            var ids = new HashSet<long>(rooms.Select(room => room.id));
             foreach (var id in _rows.Keys.Where(id => !ids.Contains(id)).ToArray())
             {
                 // Remove from layout immediately; Destroy completes at the end of the frame.

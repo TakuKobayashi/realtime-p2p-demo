@@ -19,12 +19,12 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
                 JsonConvert.SerializeObject(new { playerId = player.id, player.token, maxPlayers })));
         public async Task<List<MachingRoom>> ListRoomsAsync()
             => JsonConvert.DeserializeObject<List<MachingRoom>>(await HttpRequestAsync("GET", $"{_baseUrl}/api/matchmaking/rooms"));
-        public async Task<MachingRoom> JoinRoomAsync(string roomId, ExamplePlayerSession player)
+        public async Task<MachingRoom> JoinRoomAsync(long roomId, ExamplePlayerSession player)
             => JsonConvert.DeserializeObject<MachingRoom>(await HttpRequestAsync("POST",
-                $"{_baseUrl}/api/matchmaking/rooms/{UnityWebRequest.EscapeURL(roomId)}/join",
+                $"{_baseUrl}/api/matchmaking/rooms/{roomId.ToString(System.Globalization.CultureInfo.InvariantCulture)}/join",
                 JsonConvert.SerializeObject(new { playerId = player.id, player.token })));
-        public async Task LeaveRoomAsync(string roomId, ExamplePlayerSession player)
-            => await HttpRequestAsync("POST", $"{_baseUrl}/api/matchmaking/rooms/{UnityWebRequest.EscapeURL(roomId)}/leave",
+        public async Task LeaveRoomAsync(long roomId, ExamplePlayerSession player)
+            => await HttpRequestAsync("POST", $"{_baseUrl}/api/matchmaking/rooms/{roomId.ToString(System.Globalization.CultureInfo.InvariantCulture)}/leave",
                 JsonConvert.SerializeObject(new { playerId = player.id, player.token }), 5);
 
         public static async Task<string> HttpRequestAsync(string method, string url, string jsonBody = null, int timeoutSeconds = 15)

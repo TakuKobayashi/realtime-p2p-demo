@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { routePartykitRequest } from 'partyserver';
+import { getServerByName, routePartykitRequest } from 'partyserver';
 import matchmaking from './routes/matchmaking';
 import { Lobby } from './party/lobby';
 import { Room } from './party/room';
@@ -30,7 +30,13 @@ export default {
     // Everything else falls through to the Hono REST API below.
     // This is all ONE Cloudflare Worker / ONE wrangler deploy - matchmaking
     // (Hono + D1) and signaling (partyserver Durable Objects) live together.
-    const partyResponse = await routePartykitRequest(request, env);
+    const partyResponse = await routePartykitRequest(request, env, {
+      async onBeforeConnect(_request, lobby) {
+        // Initialize discovery when a browser connects, independently of room creation.
+        // This persists the Lobby identity before its first WebSocket is accepted.
+        if (lobby.className === 'Lobby') await getServerByName<Env, Lobby>(env.Lobby, lobby.name);
+      },
+    });
     if (partyResponse) return partyResponse;
 
     return app.fetch(request, env, ctx);
