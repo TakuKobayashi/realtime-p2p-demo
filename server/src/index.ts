@@ -14,10 +14,18 @@ const app = new Hono<{ Bindings: Env }>();
 app.use("*", cors());
 app.get("/health", (c) => c.text("ok"));
 app.route("/api/matchmaking", matchmaking);
+app.onError((error, c) => {
+  console.error("request failed", error);
+  return c.json({ error: "server error" }, 500);
+});
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // WebSocket (and HTTP push) requests to /parties/lobby/{id} and
+    const path = new URL(request.url).pathname;
+    // Internal room control endpoints are reachable only through the binding.
+    if (path.startsWith("/parties/") && request.headers.get("Upgrade")?.toLowerCase() !== "websocket")
+      return new Response("websocket upgrade required", { status: 426 });
+    // WebSocket requests to /parties/lobby/rooms and
     // /parties/room/{id} are routed straight to the matching Durable Object.
     // Everything else falls through to the Hono REST API below.
     // This is all ONE Cloudflare Worker / ONE wrangler deploy - matchmaking

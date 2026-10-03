@@ -1,26 +1,23 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 
-/**
- * One row per player currently in (or recently matched out of) the queue.
- * "waiting"  -> still looking for an opponent.
- * "matched"  -> paired with opponentId in roomId; both rows are updated
- *               in the same request (see routes/matchmaking.ts).
- */
-export const queuePlayers = sqliteTable("queue_players", {
-  id: text("id").primaryKey(), // playerId, provided by the Unity client
-  status: text("status", { enum: ["waiting", "matched"] })
-    .notNull()
-    .default("waiting"),
-  roomId: text("room_id"),
-  opponentId: text("opponent_id"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+// IDs are database-issued opaque integers. Tokens are credentials, not IDs.
+export const players = sqliteTable("players", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  token: text("token").notNull().unique(),
+  createdAt: integer("created_at").notNull(),
 });
-
-/** Public 1:1 room; SDP and ICE are still relayed by the Room Durable Object. */
 export const gameRooms = sqliteTable("game_rooms", {
-  id: text("id").primaryKey(),
-  hostPlayerId: text("host_player_id").notNull(),
-  guestPlayerId: text("guest_player_id"),
-  status: text("status", { enum: ["waiting", "matched"] }).notNull().default("waiting"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  maxPlayers: integer("max_players"), // null = no application-imposed limit
+  createdAt: integer("created_at").notNull(),
 });
+export const roomMembers = sqliteTable("room_members", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  roomId: integer("room_id").notNull().references(() => gameRooms.id, { onDelete: "cascade" }),
+  playerId: integer("player_id").notNull().references(() => players.id),
+  connectionId: text("connection_id"),
+  expiresAt: integer("expires_at").notNull(),
+}, (table) => ({
+  playerRoom: uniqueIndex("room_members_player").on(table.playerId),
+  roomExpiry: index("room_members_room_expiry").on(table.roomId, table.expiresAt),
+}));

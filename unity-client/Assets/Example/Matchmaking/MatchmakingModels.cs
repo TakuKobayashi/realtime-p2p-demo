@@ -3,36 +3,17 @@ using System;
 namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
 {
     [Serializable]
-    public class MatchmakingResult
-    {
-        public string status; // "waiting" | "matched"
-        public string roomId;
-        public string opponentId;
-        public bool isInitiator;
-    }
-
-    [Serializable]
-    internal class MatchmakingJoinRequest
-    {
-        public string playerId;
-    }
-
-    [Serializable]
-    public class MachingRoom
+    public sealed class ExamplePlayerSession
     {
         public string id;
-        public string hostPlayerId;
-        public string guestPlayerId;
-        public string status; // "waiting" | "matched"
-        public long createdAt;
+        public string token;
     }
-
     [Serializable]
-    public class LobbyMatchedMessage
+    public sealed class MachingRoom
     {
-        public string type;
-        public string roomId;
-        public string opponentId;
-        public bool isInitiator;
+        public string id;
+        public int maxPlayers; // 0 = unlimited
+        public int memberCount;
+        public long createdAt;
     }
 }

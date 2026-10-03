@@ -2,7 +2,8 @@
     "name": "PhantomCatWorks.RealtimeP2PKit.Example",
     "rootNamespace": "PhantomCatWorks.RealtimeP2PKit.Example",
     "references": [
-        "PhantomCatWorks.RealtimeP2PKit"
+        "PhantomCatWorks.RealtimeP2PKit",
+        "UnityEngine.UI"
     ],
     "autoReferenced": true
 }

@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Example/Scenes/MatchingRoomExample.unity
+    guid: 3e1b035c84e728943a1cdf1782f83e58
+  - enabled: 1
     path: Assets/Example/Scenes/P2PExample.unity
     guid: fb64a8c57be1967449ad06d577f5bf88
   m_configObjects: {}

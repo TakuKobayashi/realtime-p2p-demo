@@ -2,39 +2,26 @@ using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit.Example
 {
-    /// <summary>
-    /// Receives the opponent's PositionPacket via P2PManager and smoothly moves
-    /// a proxy cube toward it. Registered as the handler for PositionPacketId.
-    /// </summary>
-    public class ExampleRemotePlayerSync : MonoBehaviour
+    /// <summary>One proxy per remote sender; the scene controller owns packet registration.</summary>
+    public sealed class ExampleRemotePlayerSync : MonoBehaviour
     {
         [SerializeField] private float _lerpSpeed = 12f;
-
         private Vector3 _targetPosition;
         private bool _hasTarget;
+        private float _lastTimestamp = float.NegativeInfinity;
 
-        private void OnEnable()
+        public void Apply(PositionPacket packet)
         {
-            P2PManager.Instance.RegisterPacketHandler<PositionPacket>(
-                ExamplePlayerController.PositionPacketId, OnPositionReceived);
-        }
-
-        private void OnDisable()
-        {
-            P2PManager.Instance.UnregisterPacketHandler(ExamplePlayerController.PositionPacketId);
-        }
-
-        private void OnPositionReceived(PositionPacket packet)
-        {
+            // Unordered delivery must not rewind an already received position.
+            if (packet.TimestampMs <= _lastTimestamp) return;
+            _lastTimestamp = packet.TimestampMs;
             _targetPosition = new Vector3(packet.X, packet.Y, packet.Z);
+            if (!_hasTarget) transform.position = _targetPosition;
             _hasTarget = true;
-            Debug.Log($"[P2P Example] remote position received: {packet}");
         }
-
         private void Update()
         {
-            if (!_hasTarget) return;
-            transform.position = Vector3.Lerp(transform.position, _targetPosition, Time.deltaTime * _lerpSpeed);
+            if (_hasTarget) transform.position = Vector3.Lerp(transform.position, _targetPosition, Time.deltaTime * _lerpSpeed);
         }
     }
 }

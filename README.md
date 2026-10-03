@@ -6,28 +6,27 @@
 > `RealtimeP2PKit > Connection Settings` では Local / Remote をプルダウンで選び、
 > シグナリング WebSocket URL と複数の STUN URL を設定します。Player ビルドで使う環境も選択してください。
 > マッチングと HTTP クライアントはライブラリには含まず、`unity-client/Assets/Example/Matchmaking/` にあります。
-> `RealtimeP2PKit > Example Connection Settings` でマッチング用 HTTP と Lobby WebSocket のベース URL を設定します。
+> `RealtimeP2PKit > Example Connection Settings` でルーム管理用 HTTP と Room WebSocket のベース URL を設定します。
 > `Assets/RealtimeP2PKit/` と `Assets/Example/` の境界が Package に含めるかどうかの境界です。
 
 
-1対1リアルタイム対戦ゲームの実証実験。座標(xyz)をWebRTC DataChannel経由でP2P直接送信し、
+複数参加者のリアルタイム通信の実証実験。座標(xyz)を各参加者へのWebRTC DataChannel経由でP2P直接送信し、
 マッチング/シグナリングは **1つのCloudflare Worker** で行う構成です。
 
 ```
 [Unity A]                                        [Unity B]
-   |  1. POST /api/matchmaking/join                  |
+   |  1. POST /api/matchmaking/rooms / {id}/join     |
    |------------------> realtime-p2p-server <--------|
    |                (Hono + D1 + partyserver,         |
    |                 ひとつの Cloudflare Worker)       |
-   |   2. Lobby Durable Object を直接呼び出してpush     |
-   |<--------------------------+                      |
+   |   2. HTTPで参加枠を確保してP2PExampleへ遷移       |
    |  3. wss://.../parties/room/{roomId} に接続(signaling)
    |<===== SDP offer/answer, ICE candidates ==========>|
    |  4. WebRTC P2P DataChannel (STUNのみ, TURNなし)     |
    |<========= MessagePack encoded xyz ===============>|
 ```
 
-- **マッチング**: Hono + Drizzle ORM + D1
+- **ルーム管理**: Hono + D1（参加者・ルーム・参加枠。IDはAUTOINCREMENT）
 - **シグナリング**: [partyserver](https://github.com/cloudflare/partykit/tree/main/packages/partyserver)
   (Cloudflareが公式に配布している「PartyKitのDurable Object実装」。`Server`クラスを
   Durable Objectとして同じWorkerにバインドするだけで、PartyKitと同じ`wss://.../parties/{party}/{room}`
@@ -47,9 +46,9 @@ server/                     単一のCloudflare Worker (Hono + Drizzle + D1 + pa
     index.ts                fetchハンドラのエントリーポイント。Hono REST と
                              partyserverのWebSocketルーティングをここで1本化
     env.ts                  Bindings型 (DB, Lobby, Room)
-    routes/matchmaking.ts   POST /api/matchmaking/join, /leave, GET /status/:id
-    party/lobby.ts          Durable Object "Lobby" (1プレイヤーにつき1インスタンス)
-    party/room.ts           Durable Object "Room"  (1対戦につき1インスタンス、SDP/ICE中継)
+    routes/matchmaking.ts   /players, /rooms, /rooms/:id/join, /rooms/:id/leave
+    party/lobby.ts          /parties/lobby/rooms ― 新規ルームの差分通知
+    party/room.ts           Durable Object "Room"（1ルームにつき1インスタンス、宛先付きSDP/ICE中継）
     db/schema.ts, db/client.ts
   wrangler.jsonc             D1バインディング + Durable Objectバインディングを1ファイルに
   migrations/                D1マイグレーション
@@ -129,8 +128,23 @@ Unityの Console にエラーが出ていない状態が正常です。エラー
 メニュー `RealtimeP2PKit > Build Example Scene` で再生成できます:
 
 - `Assets/Example/Scenes/P2PExample.unity`
+- `Assets/Example/Scenes/MatchingRoomExample.unity`（Build Settingsの開始シーン）
 - `Assets/Example/Prefabs/LocalPlayer.prefab`, `Assets/Example/Prefabs/RemotePlayer.prefab`
 - `Assets/Example/Config/P2PConfig.asset`(未作成の場合)
+
+ゲーム画面はUGUIで作成しています。MatchingRoomExampleの定員入力・作成・Join・一覧更新は
+InputField / Button / ScrollRect、P2PExampleの人数表示・退出操作はText / Buttonです。
+Canvasと参照はScene・Prefabに保存済みで、Hierarchy / Inspectorから配置や見た目を編集できます。
+一覧の各行は `Assets/Example/Prefabs/RoomListRow.prefab`、表示処理は `Assets/Example/UI/` にあります。
+`Build Example Scene`で再生成した場合もUGUIを生成します。
+
+一覧は最初に `GET /api/matchmaking/rooms` で取得し、その最大RoomId（空なら `"0"`）を使って
+`/parties/lobby/rooms` にWebSocket接続します。接続後に
+`{"type":"subscribe","lastRoomId":"123"}` を送ると、そのIDより大きい現在有効なRoomだけが
+`{"type":"rooms-created","rooms":[...]}` で届き、以降の新規作成も差分だけが通知されます。
+HTTP取得から接続までの間、および切断中に作られたRoomも、再接続時のカーソルから補完します。
+定期HTTPポーリングは行いません。新規追加の通知なので、既存Roomの人数変更・削除は
+「一覧を更新」で再取得します。Join時の定員・Roomの存続はサーバーで再確認します。
 
 接続先(サーバーのURL)は`P2PConfig`アセットではなく、次の「2-5. 接続先(Local/Remote)を設定する」で
 説明するEditorツールで設定します。
@@ -151,7 +165,7 @@ Editor拡張ウィンドウで、以下を設定できます:
   - STUN Server URLs(**上から順に使用される複数エントリのリスト**。↑↓ボタンで並び替え、＋で追加、✕で削除)
 
   を入力し、**Save Local / Remote Settings** ボタンで Resources アセットに保存します。
-- **Network Logging**: HTTP/WebSocket/WebRTC DataChannelの送受信内容をそのままログ出力する
+- **Network Logging**: HTTPのURL・ステータス、およびWebSocket/WebRTC DataChannelの送受信内容をログ出力する
   トグル(詳細は後述)。
 
 接続先は Resources アセットに保存され、Player ビルドにも含まれます。
@@ -162,12 +176,12 @@ Example のマッチング接続先は `RealtimeP2PKit > Example Connection Sett
 Local / Remote ごとに **HTTP Base URL**（例: `http://localhost:8787`）と
 **WebSocket Base URL**（例: `ws://localhost:8787`）を入力し、
 **Save Local / Remote Settings** で保存してください。Remote はデプロイ先の `https://...` / `wss://...` に変更してください。
-HTTP には `/api/matchmaking/...`、WebSocket には `/parties/lobby/{playerId}` が自動で追加されるため、ベース URL を指定します。
+HTTP には `/api/matchmaking/...`、WebSocket には `/parties/room/{roomId}` が自動で追加されるため、ベース URL を指定します。
 設定アセットは `Assets/Example/Resources/ExampleConnectionSettings.asset` にあり、パッケージ外に置かれます。
 環境選択はパッケージと共通で、Player も **Player build environment** に従います。
-`ExampleBootstrap` のキューマッチング、および `ExampleMatchmakingFlow` のルーム作成・一覧・参加はこの HTTP 設定を使います
-（API 引数で URL を明示した場合はその値を使います）。WebRTC のルームシグナリングと STUN は引き続き
-パッケージの `Connection Settings` で設定します。同じサーバーを使う構成では、両 Window の WebSocket 接続先を揃えてください。
+`ExampleMatchmakingFlow` の参加者登録・ルーム作成・一覧・参加・退出はこの HTTP 設定を使います。
+Example の Room シグナリングはこの WebSocket 設定を使い、STUN はパッケージの `Connection Settings` を使います。
+ライブラリを直接使う場合は `ConnectToRoomAsync` に WebSocket URL を渡せます。省略時はパッケージの設定を使います。
 
 初期値は次の通りです:
 
@@ -184,15 +198,21 @@ stun:stun.services.mozilla.com:3478
 
 ### 2-6. 実行して動作確認
 
-2台の実機、または `ParrelSync` 等で複製した2つのUnityエディタで `P2PExample` シーンを再生します。
-2人がキューに入ると自動的にマッチングし、WebRTC接続が確立してcubeが同期し始めます。
+複数の実機、または複製したUnityプロジェクトで `MatchingRoomExample` シーンを再生します。
+1人が「新しいRoomを作成」を押すと、すぐに `P2PExample` へ移動してプレイヤーを操作できます。
+ほかのクライアントには一覧にRoomが表示され、「Join」で同じシーンへ移動します。
+参加者全員が相手ごとにWebRTC接続を持ち、全員に座標を送信します。受信側は送信元IDごとにCubeを表示します。
+作成画面の定員は自分を含む人数で、既定は4、0は無制限です。Inspectorの `_defaultMaxPlayers` でも初期値を変更できます。
+ルームの作成者が退出しても残りの参加者は通信を継続します。最後の参加者の退出時だけRoomを削除します。
+P2PExampleを直接再生した場合はMatchingRoomExampleへ戻ります。
 Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出るので、`P2PConfig.LogLevel`を
 `Info`にしておくと接続フローを追いやすいです。ログは共有ラッパーを介さず各呼び出し箇所で
 直接`Debug.Log`/`LogWarning`/`LogError`を呼んでいるので、Consoleでログ行をダブルクリックすると
 常にそのログを実際に出したコード行にジャンプします。
-送受信データの生の中身(HTTPリクエスト/レスポンス、WebSocketメッセージ、WebRTC DataChannelの
+送受信データの内容(WebSocketメッセージ、WebRTC DataChannelの
 バイト列)まで見たい場合は、上記の`RealtimeP2PKit > Connection Settings`の
 **Network Logging** トグルをONにしてください(こちらもEditor上でのみON/OFFできます)。
+HTTPはメソッド・URL・ステータスのみ記録し、認証トークンはログに出しません。
 
 ## ライブラリの使い方(クイックスタート・APIリファレンス)
 
@@ -201,9 +221,9 @@ Consoleに`[RealtimeP2PKit]`プレフィックス付きのログが大量に出�
 
 ```csharp
 P2PManager.Instance.Initialize();
-P2PManager.Instance.RegisterPacketHandler<MyPacket>(1, packet => { ... });
-P2PManager.Instance.DataChannelReady += () => { /* 対戦開始 */ };
-await P2PManager.Instance.ConnectToRoomAsync(playerId, roomId, opponentId, isInitiator);
+P2PManager.Instance.RegisterPacketHandler<MyPacket>(1, (senderId, packet) => { ... });
+P2PManager.Instance.PeerConnected += peerId => { /* 相手の表示を追加 */ };
+await P2PManager.Instance.ConnectToRoomAsync(playerId, roomId, token);
 P2PManager.Instance.Send(1, new MyPacket { ... });
 ```
 
@@ -221,16 +241,17 @@ P2PManager.Instance.Send(1, new MyPacket { ... });
    Inspectorで以下を割り当てる:
    - `Config` : 任意。未指定ならデフォルト値を使用。変更する場合は `P2PConfig`アセットを割り当てます
      (`Assets > Create > RealtimeP2PKit > P2P Config`で作成。
-     接続先URLはこのアセットではなく`RealtimeP2PKit > Connection Settings`で設定します)
+     Exampleの接続先URLは `RealtimeP2PKit > Example Connection Settings` で設定します)
    - `Local Player Prefab` : `ExamplePlayerController`コンポーネントを付けたCubeのPrefab
    - `Remote Player Prefab` : 何もスクリプトを付けていないCubeのPrefab
      (`ExampleRemotePlayerSync`は`ExampleBootstrap`が実行時に自動でAddComponentします)
 2. カメラとライトは通常のSceneと同様(`Main Camera` + `Directional Light`)。
 3. 床は任意(Plane等、見た目のためだけ)。
 
-Play再生すると`ExampleBootstrap.Start()`がランダムなplayerIdでマッチングを開始し、
-対戦相手が見つかり次第、自動で2体のCubeをInstantiateしてP2P同期を開始します
-(`Assets/Example/ExampleBootstrap.cs`の中身がそのままロジックです)。
+MatchingRoomExampleには `MatchingRoomExampleController` を配置します（必須の `ExampleMatchmakingFlow` が一緒に付きます）。
+両シーンをBuild Settingsに追加してください。HTTPで参加枠を確保すると `ExampleRoomSession` に情報を保存し、
+P2PExample側の `ExampleBootstrap` がWebSocketに接続します。IDはサーバーの連番で、クライアントは生成しません。
+接続相手ごとに送信元ID付きの受信処理を行い、相手の退出ではその相手のCubeだけを削除します。
 
 自作ゲームに組み込む場合は`ExampleBootstrap`をそのまま参考にしつつ、`P2PManager.Instance`を
 直接呼び出すのが一番シンプルです(パッケージ側READMEのAPIリファレンス参照)。
@@ -247,8 +268,20 @@ Play再生すると`ExampleBootstrap.Start()`がランダムなplayerIdでマッ
 - **MessagePack + IL2CPP**: デフォルトの動的コード生成はIL2CPP/AOTビルドで動作しません。
   実機ビルドを行う場合は `mpc` (MessagePack Code Generator) で事前コード生成し、
   `MessagePackPayloadCodec` に生成された `GeneratedResolver` を渡してください。
-- **D1のマッチング整合性**: デモ用の簡易実装のため、同時に大量の join が来た場合の
-  完全な原子性は保証していません。本番運用ではDurable Object等でのロックを検討してください。
+- **メッシュの規模**: ライブラリに固定の人数制限はありません。n人で各クライアントはn−1本、全体はn(n−1)/2本の接続を持つため、人数増加に伴って端末・帯域・サーバー基盤の実用上の限界があります。
+- **退出検知**: 正常な退出・WebSocket切断はすぐ反映します。切断通知が届かない場合は45秒のリースと15秒間隔のアラームで、最後のハートビートから最大約60秒で削除します。
+
+## マルチプレイヤー版への更新とサーバーテスト
+
+サーバーとUnityを同時に更新し、`server` で `pnpm db:migrate:local` を実行してください。
+本番環境を更新する場合はデプロイに合わせて `pnpm db:migrate:remote` が必要です。
+未適用の初期migration `0000_init.sql` / `0001_game_rooms.sql` で、
+`players`・`game_rooms`・`room_members` を `INTEGER PRIMARY KEY AUTOINCREMENT` で作成します。
+新しい通信プロトコルで旧ルームを継続することはできません。IDは識別にだけ使い、ホスト権限やOffer役割をIDから導きません。
+セキュリティ用トークンはIDとは別に発行します。
+
+Node.js 22以降で `pnpm typecheck` と `pnpm test` を実行できます。統合テストは一時ローカルD1/Workerを使い、
+複数参加・同時Joinの定員・宛先付きシグナリング・退出・切断・空ルーム削除・期限切れを確認します。
 
 ## ライブラリの再利用について
 

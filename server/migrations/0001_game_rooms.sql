@@ -1,9 +1,14 @@
-CREATE TABLE `game_rooms` (
-  `id` text PRIMARY KEY NOT NULL,
-  `host_player_id` text NOT NULL,
-  `guest_player_id` text,
-  `status` text DEFAULT 'waiting' NOT NULL,
-  `created_at` integer NOT NULL
+CREATE TABLE game_rooms (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  max_players INTEGER CHECK (max_players IS NULL OR max_players > 0),
+  created_at INTEGER NOT NULL
 );
-
-CREATE INDEX `game_rooms_waiting_created_at` ON `game_rooms` (`status`, `created_at`);
+CREATE TABLE room_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id INTEGER NOT NULL REFERENCES game_rooms(id) ON DELETE CASCADE,
+  player_id INTEGER NOT NULL REFERENCES players(id),
+  connection_id TEXT,
+  expires_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX room_members_player ON room_members(player_id);
+CREATE INDEX room_members_room_expiry ON room_members(room_id, expires_at);

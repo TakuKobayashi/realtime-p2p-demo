@@ -45,12 +45,23 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Editor
             serialized.FindProperty("_localPlayerPrefab").objectReferenceValue = localPrefab;
             serialized.FindProperty("_remotePlayerPrefab").objectReferenceValue = remotePrefab;
             serialized.ApplyModifiedPropertiesWithoutUndo();
+            ExampleUiBuilder.AddGameplayUi(bootstrap);
+            ExampleUiBuilder.EnsureEventSystem();
 
             EnsureFolder("Assets/Example/Scenes");
             const string scenePath = "Assets/Example/Scenes/P2PExample.unity";
             EditorSceneManager.SaveScene(scene, scenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(scenePath, true) };
-            Debug.Log("[P2P Example] Built " + scenePath + ". Configure signaling/STUN in Connection Settings and HTTP/Lobby WebSocket in Example Connection Settings.");
+            var matchingScene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+            var matchingController = new GameObject("Room Matching").AddComponent<MatchingRoomExampleController>();
+            ExampleUiBuilder.AddMatchingUi(matchingController);
+            ExampleUiBuilder.EnsureEventSystem();
+            const string matchingPath = "Assets/Example/Scenes/MatchingRoomExample.unity";
+            EditorSceneManager.SaveScene(matchingScene, matchingPath);
+            EditorBuildSettings.scenes = new[] {
+                new EditorBuildSettingsScene(matchingPath, true),
+                new EditorBuildSettingsScene(scenePath, true),
+            };
+            Debug.Log("[P2P Example] Built matching and gameplay scenes. Configure STUN in Connection Settings and HTTP/Room WebSocket in Example Connection Settings.");
         }
 
         private static void ApplyColor(GameObject go, Color color)

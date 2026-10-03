@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -7,110 +8,43 @@ using UnityEngine.Networking;
 
 namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
 {
-    /// <summary>
-    /// Matchmaking client for the Hono-based "matching-api" worker
-    /// (see /server, the same worker that also hosts the Lobby/Room signaling
-    /// Durable Objects). Endpoints:
-    ///   POST {baseUrl}/api/matchmaking/join  { playerId } -> MatchmakingResult
-    ///   POST {baseUrl}/api/matchmaking/leave { playerId }
-    /// </summary>
-    public class HttpMatchmakingClient
+    public sealed class HttpMatchmakingClient
     {
         private readonly string _baseUrl;
+        public HttpMatchmakingClient(string baseUrl) => _baseUrl = baseUrl.Trim().TrimEnd('/');
+        public async Task<ExamplePlayerSession> RegisterPlayerAsync()
+            => JsonConvert.DeserializeObject<ExamplePlayerSession>(await HttpRequestAsync("POST", $"{_baseUrl}/api/matchmaking/players", "{}"));
+        public async Task<MachingRoom> CreateRoomAsync(ExamplePlayerSession player, int maxPlayers)
+            => JsonConvert.DeserializeObject<MachingRoom>(await HttpRequestAsync("POST", $"{_baseUrl}/api/matchmaking/rooms",
+                JsonConvert.SerializeObject(new { playerId = player.id, player.token, maxPlayers })));
+        public async Task<List<MachingRoom>> ListRoomsAsync()
+            => JsonConvert.DeserializeObject<List<MachingRoom>>(await HttpRequestAsync("GET", $"{_baseUrl}/api/matchmaking/rooms"));
+        public async Task<MachingRoom> JoinRoomAsync(string roomId, ExamplePlayerSession player)
+            => JsonConvert.DeserializeObject<MachingRoom>(await HttpRequestAsync("POST",
+                $"{_baseUrl}/api/matchmaking/rooms/{UnityWebRequest.EscapeURL(roomId)}/join",
+                JsonConvert.SerializeObject(new { playerId = player.id, player.token })));
+        public async Task LeaveRoomAsync(string roomId, ExamplePlayerSession player)
+            => await HttpRequestAsync("POST", $"{_baseUrl}/api/matchmaking/rooms/{UnityWebRequest.EscapeURL(roomId)}/leave",
+                JsonConvert.SerializeObject(new { playerId = player.id, player.token }), 5);
 
-        public HttpMatchmakingClient(string baseUrl)
+        public static async Task<string> HttpRequestAsync(string method, string url, string jsonBody = null, int timeoutSeconds = 15)
         {
-            _baseUrl = baseUrl.TrimEnd('/');
-        }
-
-        public async Task<MatchmakingResult> JoinQueueAsync(string playerId)
-        {
-            var url = $"{_baseUrl}/api/matchmaking/join";
-            var body = JsonConvert.SerializeObject(new MatchmakingJoinRequest { playerId = playerId });
-            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Matchmaking] POST {url}");
-
-            var responseText = await HttpRequestAsync("POST", url, body);
-
-            var result = JsonConvert.DeserializeObject<MatchmakingResult>(responseText);
-            if (P2PLog.ShouldLog(P2PLogLevel.Info))
+            if (P2PNetworkLog.IsEnabled) Debug.Log($"[P2P Example][HTTP] -> {method} {url}");
+            using var request = new UnityWebRequest(url, method);
+            request.timeout = timeoutSeconds;
+            if (jsonBody != null) request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(jsonBody));
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.SetRequestHeader("Content-Type", "application/json");
+            var operation = request.SendWebRequest();
+            while (!operation.isDone) await Task.Yield();
+            // Payloads contain credentials: do not include them in network logs.
+            if (P2PNetworkLog.IsEnabled) Debug.Log($"[P2P Example][HTTP] <- {method} {url} status={request.responseCode}");
+            if (request.result != UnityWebRequest.Result.Success)
             {
-                Debug.Log($"[RealtimeP2PKit][Matchmaking] status={result.status} roomId={result.roomId} " +
-                          $"opponentId={result.opponentId} isInitiator={result.isInitiator}");
+                var details = request.downloadHandler.text;
+                throw new Exception($"HTTP {request.responseCode}: {(string.IsNullOrEmpty(details) ? request.error : details)}");
             }
-            return result;
-        }
-
-        public async Task LeaveQueueAsync(string playerId)
-        {
-            var url = $"{_baseUrl}/api/matchmaking/leave";
-            var body = JsonConvert.SerializeObject(new MatchmakingJoinRequest { playerId = playerId });
-            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Matchmaking] POST {url} (leave)");
-            try
-            {
-                await HttpRequestAsync("POST", url, body);
-                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][Matchmaking] left queue");
-            }
-            catch (Exception ex)
-            {
-                if (P2PLog.ShouldLog(P2PLogLevel.Warn)) Debug.LogWarning($"[RealtimeP2PKit][Matchmaking] leave failed (ignored): {ex.Message}");
-            }
-        }
-
-        public async Task<MachingRoom> CreateRoomAsync(string playerId)
-        {
-            var responseText = await HttpRequestAsync("POST", $"{_baseUrl}/api/matchmaking/rooms",
-                JsonConvert.SerializeObject(new MatchmakingJoinRequest { playerId = playerId }));
-            return JsonConvert.DeserializeObject<MachingRoom>(responseText);
-        }
-
-        public async Task<System.Collections.Generic.List<MachingRoom>> ListRoomsAsync(string playerId)
-        {
-            var responseText = await HttpRequestAsync("GET", $"{_baseUrl}/api/matchmaking/rooms?playerId={UnityWebRequest.EscapeURL(playerId)}");
-            return JsonConvert.DeserializeObject<System.Collections.Generic.List<MachingRoom>>(responseText);
-        }
-
-        public async Task<MachingRoom> JoinRoomAsync(string roomId, string playerId)
-        {
-            var responseText = await HttpRequestAsync("POST", $"{_baseUrl}/api/matchmaking/rooms/{UnityWebRequest.EscapeURL(roomId)}/join",
-                JsonConvert.SerializeObject(new MatchmakingJoinRequest { playerId = playerId }));
-            return JsonConvert.DeserializeObject<MachingRoom>(responseText);
-        }
-
-        public static async Task<string> HttpRequestAsync(string method, string url, string jsonBody = null)
-        {
-            if (P2PNetworkLog.IsEnabled)
-            {
-                Debug.Log($"[P2P Example][HTTP] -> {method} {url}\n{jsonBody}");
-            }
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-            using var req = new UnityWebRequest(url, method);
-            if (!string.IsNullOrEmpty(jsonBody))
-            {
-                var bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
-                req.uploadHandler = new UploadHandlerRaw(bodyRaw);
-            }
-            req.downloadHandler = new DownloadHandlerBuffer();
-            req.SetRequestHeader("Content-Type", "application/json");
-
-            var op = req.SendWebRequest();
-            while (!op.isDone) await Task.Yield();
-            stopwatch.Stop();
-
-            var isError = req.result != UnityWebRequest.Result.Success;
-            if (P2PNetworkLog.IsEnabled)
-            {
-                Debug.Log($"[P2P Example][HTTP] <- {method} {url} status={req.responseCode} " +
-                          $"rtt={stopwatch.ElapsedMilliseconds}ms\n{req.downloadHandler?.text}");
-            }
-
-            if (isError)
-            {
-                if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Matchmaking] request failed: {req.error} (HTTP {req.responseCode}) url={url}");
-                throw new Exception($"Matchmaking request failed: {req.error}");
-            }
-
-            return req.downloadHandler.text;
+            return request.downloadHandler.text;
         }
     }
 }

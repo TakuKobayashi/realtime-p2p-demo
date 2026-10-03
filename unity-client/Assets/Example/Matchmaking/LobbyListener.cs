@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -7,77 +8,99 @@ using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
 {
-    /// <summary>
-    /// Listens on this player's "Lobby" party (a partyserver Durable Object, one
-    /// instance per playerId) for a push notification that a match was found
-    /// while this player was waiting in the matchmaking queue.
-    /// See /server/src/party/lobby.ts and
-    /// /server/src/routes/matchmaking.ts (the Durable Object fetch() push).
-    /// </summary>
-    public class LobbyListener : IDisposable
+    /// <summary>New-room stream. The scene owns reconnects and its received RoomId cursor.</summary>
+    public sealed class LobbyListener : IDisposable
     {
-        public event Action<LobbyMatchedMessage> Matched;
-
-        private readonly string _baseWsUrl;
-        private string _url;
+        public event Action<List<MachingRoom>> RoomsReceived;
+        public event Action Synchronized;
+        public event Action<string> Disconnected;
+        private readonly string _url;
         private WebSocket _ws;
+        private bool _disposed;
+        private bool _failed;
+        private float _lastReceived;
+        private float _nextPing;
 
-        /// <param name="baseWsUrl">
-        /// (see ExampleEndpoints.GetWebSocketBaseUrl()). "/parties/lobby/{playerId}" is appended.</param>
-        public LobbyListener(string baseWsUrl)
+        private sealed class Message
         {
-            _baseWsUrl = baseWsUrl.Trim().TrimEnd('/');
+            public string type;
+            public List<MachingRoom> rooms;
         }
+        public LobbyListener(string baseWsUrl)
+            => _url = baseWsUrl.Trim().TrimEnd('/') + "/parties/lobby/rooms";
 
-        public async Task ConnectAsync(string playerId)
+        public void Connect(string lastRoomId)
         {
-            _url = $"{_baseWsUrl}/parties/lobby/{playerId}";
-            if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Lobby] connecting: {_url}");
-
+            _lastReceived = Time.realtimeSinceStartup;
+            _nextPing = _lastReceived + 15f;
             _ws = new WebSocket(_url);
             _ws.OnOpen += () =>
             {
-                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][Lobby] websocket OPEN, waiting for match...");
-                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketOpen("Lobby", _url));
+                if (_disposed || _failed) return;
+                _ = SendAsync(JsonConvert.SerializeObject(new { type = "subscribe", lastRoomId }));
             };
-            _ws.OnError += err =>
-            {
-                if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Lobby] websocket error: {err}");
-            };
-            _ws.OnClose += code =>
-            {
-                if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Lobby] websocket closed code={code}");
-                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketClose("Lobby", _url, code.ToString()));
-            };
+            _ws.OnError += error => Fail("ルーム通知に接続できません。再接続します。");
+            _ws.OnClose += code => Fail("ルーム通知が切断されました。再接続します。");
             _ws.OnMessage += bytes =>
             {
+                if (_disposed || _failed) return;
+                _lastReceived = Time.realtimeSinceStartup;
                 var json = Encoding.UTF8.GetString(bytes);
                 if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketReceive("Lobby", json));
                 try
                 {
-                    var msg = JsonConvert.DeserializeObject<LobbyMatchedMessage>(json);
-                    if (msg?.type == "matched")
-                    {
-                        if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][Lobby] matched! roomId={msg.roomId} opponentId={msg.opponentId} isInitiator={msg.isInitiator}");
-                        Matched?.Invoke(msg);
-                    }
+                    var message = JsonConvert.DeserializeObject<Message>(json);
+                    if (message?.type == "rooms-created" && message.rooms != null) RoomsReceived?.Invoke(message.rooms);
+                    else if (message?.type == "subscribed") Synchronized?.Invoke();
                 }
-                catch (Exception ex)
-                {
-                    if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][Lobby.OnMessage.Parse] Exception: {ex}");
-                }
+                catch (Exception ex) { Fail("ルーム通知の読み込みに失敗しました: " + ex.Message); }
             };
-
-            await _ws.Connect();
+            _ = RunAsync();
         }
-
-        public void DispatchMessageQueue()
+        private async Task RunAsync()
         {
+            try { await _ws.Connect(); }
+            catch (Exception) { Fail("ルーム通知に接続できません。再接続します。"); }
+        }
+        private async Task SendAsync(string json)
+        {
+            try
+            {
+                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketSend("Lobby", json));
+                await _ws.SendText(json);
+            }
+            catch (Exception) { Fail("ルーム通知の送信に失敗しました。再接続します。"); }
+        }
+        public void Tick()
+        {
+            if (_disposed || _failed) return;
 #if !UNITY_WEBGL || UNITY_EDITOR
             _ws?.DispatchMessageQueue();
 #endif
+            var now = Time.realtimeSinceStartup;
+            if (now - _lastReceived > 40f) { Fail("ルーム通知が応答しません。再接続します。"); return; }
+            if (_ws?.State == WebSocketState.Open && now >= _nextPing)
+            {
+                _nextPing = now + 15f;
+                _ = SendAsync("{\"type\":\"ping\"}");
+            }
         }
-
-        public void Dispose() => _ws?.Close();
+        private void Fail(string reason)
+        {
+            if (_disposed || _failed) return;
+            _failed = true;
+            Disconnected?.Invoke(reason);
+        }
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            _ = CloseAsync();
+        }
+        private async Task CloseAsync()
+        {
+            try { if (_ws != null) await _ws.Close(); }
+            catch (Exception) { }
+        }
     }
 }

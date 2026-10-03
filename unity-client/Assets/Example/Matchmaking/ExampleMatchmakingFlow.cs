@@ -5,106 +5,50 @@ using UnityEngine;
 
 namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
 {
-    /// <summary>
-    /// Example-only room discovery. The library receives the selected room and peer roles.
-    /// Replace this class with a game's own matchmaking system as needed.
-    /// </summary>
+    /// <summary>HTTP snapshots and reservations. Each scene owns its WebSocket lifetime.</summary>
+    [DisallowMultipleComponent]
     public sealed class ExampleMatchmakingFlow : MonoBehaviour
     {
-        private HttpMatchmakingClient _client;
-        private LobbyListener _lobby;
-        private string _playerId;
-        private bool _connecting;
-        private bool _disposed;
-
-        public async Task StartQueue(string playerId)
+        private HttpMatchmakingClient Client => new HttpMatchmakingClient(ExampleEndpoints.GetHttpBaseUrl());
+        private async Task EnsurePlayerAsync()
         {
-            Configure(playerId);
-            await RunQueueAsync();
+            var http = ExampleEndpoints.GetHttpBaseUrl();
+            if (ExampleRoomSession.Player == null || ExampleRoomSession.HttpBaseUrl != http)
+                ExampleRoomSession.Player = await Client.RegisterPlayerAsync();
+            ExampleRoomSession.HttpBaseUrl = http;
         }
-
-        private void Configure(string playerId)
+        public Task<List<MachingRoom>> ListRoomsAsync() => Client.ListRoomsAsync();
+        public async Task<MachingRoom> CreateRoomAsync(int maxPlayers = 0)
         {
-            string apiUrl = ExampleEndpoints.GetHttpBaseUrl().Trim().TrimEnd('/');
-            if (string.IsNullOrWhiteSpace(playerId)) throw new ArgumentException("Player ID is required.", nameof(playerId));
-            if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out var uri) ||
-                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-                throw new ArgumentException("A valid matchmaking HTTP URL is required.", nameof(apiUrl));
-            _playerId = playerId;
-            _client = new HttpMatchmakingClient(apiUrl);
-        }
-
-        private async Task RunQueueAsync()
-        {
-            try
-            {
-                _lobby = new LobbyListener(ExampleEndpoints.GetWebSocketBaseUrl());
-                _lobby.Matched += OnLobbyMatched;
-                await _lobby.ConnectAsync(_playerId);
-                if (_disposed) return;
-                var result = await _client.JoinQueueAsync(_playerId);
-                if (_disposed || result.status != "matched") return;
-                await ConnectMatchAsync(result.roomId, result.opponentId, result.isInitiator);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[P2P Example] Matchmaking failed: {ex}");
-            }
-        }
-
-        private async void OnLobbyMatched(LobbyMatchedMessage message)
-        {
-            try
-            {
-                await ConnectMatchAsync(message.roomId, message.opponentId, message.isInitiator);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[P2P Example] Room connection failed: {ex}");
-            }
-        }
-
-        private async Task ConnectMatchAsync(string roomId, string opponentId, bool isInitiator)
-        {
-            if (_connecting || _disposed) return;
-            _connecting = true;
-            _lobby?.Dispose();
-            _lobby = null;
-            await P2PManager.Instance.ConnectToRoomAsync(_playerId, roomId, opponentId, isInitiator);
-        }
-
-        public async Task<MachingRoom> CreateRoomAsync(string playerId)
-        {
-            Configure(playerId);
-            var room = await _client.CreateRoomAsync(playerId);
-            await P2PManager.Instance.ConnectToRoomAsync(playerId, room.id, null, true);
+            if (maxPlayers < 0) throw new ArgumentOutOfRangeException(nameof(maxPlayers));
+            await EnsurePlayerAsync();
+            var room = await Client.CreateRoomAsync(ExampleRoomSession.Player, maxPlayers);
+            Remember(room);
             return room;
         }
-
-        public Task<List<MachingRoom>> ListRoomsAsync(string playerId)
+        public async Task JoinRoomAsync(MachingRoom room)
         {
-            Configure(playerId);
-            return _client.ListRoomsAsync(playerId);
+            if (room == null) throw new ArgumentNullException(nameof(room));
+            await EnsurePlayerAsync();
+            Remember(await Client.JoinRoomAsync(room.id, ExampleRoomSession.Player));
         }
-
-        public async Task JoinRoomAsync(string playerId, MachingRoom room)
+        private static void Remember(MachingRoom room)
         {
-            Configure(playerId);
-            var joined = await _client.JoinRoomAsync(room.id, playerId);
-            await P2PManager.Instance.ConnectToRoomAsync(playerId, joined.id, joined.hostPlayerId, false);
+            ExampleRoomSession.Room = room;
+            ExampleRoomSession.WebSocketBaseUrl = ExampleEndpoints.GetWebSocketBaseUrl();
         }
-
-        public Task JoinRoomAsync(MachingRoom room)
-            => JoinRoomAsync(ExampleEndpoints.GetHttpBaseUrl(), room);
-
-        private void Update() => _lobby?.DispatchMessageQueue();
-
-        private void OnDestroy()
+        public static async Task LeaveCurrentRoomAsync()
         {
-            _disposed = true;
-            _lobby?.Dispose();
-            if (_client != null && !string.IsNullOrEmpty(_playerId))
-                _ = _client.LeaveQueueAsync(_playerId);
+            var room = ExampleRoomSession.Room;
+            var player = ExampleRoomSession.Player;
+            ExampleRoomSession.Room = null;
+            if (P2PManager.TryGetExistingInstance(out var manager)) manager.Disconnect();
+            if (room == null || player == null) return;
+            try { await new HttpMatchmakingClient(ExampleRoomSession.HttpBaseUrl).LeaveRoomAsync(room.id, player); }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[P2P Example] Leave request failed; the server lease will expire: {ex.Message}");
+            }
         }
     }
 }

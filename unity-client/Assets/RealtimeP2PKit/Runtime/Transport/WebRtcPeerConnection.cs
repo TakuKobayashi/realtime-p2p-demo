@@ -31,6 +31,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         private RTCDataChannel _dataChannel;
         private readonly Queue<RTCIceCandidateInit> _pendingRemoteIceCandidates = new();
         private bool _remoteDescriptionSet;
+        private bool _disposed;
 
         public RTCPeerConnectionState State => _pc?.ConnectionState ?? RTCPeerConnectionState.New;
         /// <summary>Used as a fallback because some Unity.WebRTC versions do not
@@ -61,6 +62,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
             _pc.OnIceCandidate = candidate =>
             {
+                if (_disposed || candidate == null) return;
                 if (P2PLog.ShouldLog(P2PLogLevel.Verbose)) Debug.Log($"[RealtimeP2PKit][WebRTC] local ICE candidate gathered: {candidate.Candidate}");
                 LocalIceCandidateGathered?.Invoke(candidate);
             };
@@ -95,6 +97,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             {
                 _pc.OnDataChannel = channel =>
                 {
+                    if (_disposed) { channel.Dispose(); return; }
                     if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][WebRTC] received remote data channel label='{channel.Label}'");
                     _dataChannel = channel;
                     SetupDataChannel(_dataChannel);
@@ -125,9 +128,11 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
         private IEnumerator CreateOfferCoroutine(Action<RTCSessionDescription> onOfferCreated)
         {
+            if (_disposed) yield break;
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][WebRTC] creating offer...");
             var op = _pc.CreateOffer();
             yield return op;
+            if (_disposed) yield break;
             if (op.IsError)
             {
                 if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][WebRTC] CreateOffer failed: {op.Error.message}");
@@ -135,6 +140,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             }
             var desc = op.Desc;
             yield return _coroutineRunner.StartCoroutine(SetLocalDescriptionCoroutine(desc));
+            if (_disposed) yield break;
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][WebRTC] offer created & set as local description ({desc.sdp.Length} chars)");
             onOfferCreated?.Invoke(desc);
         }
@@ -144,9 +150,11 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
         private IEnumerator CreateAnswerCoroutine(Action<RTCSessionDescription> onAnswerCreated)
         {
+            if (_disposed) yield break;
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][WebRTC] creating answer...");
             var op = _pc.CreateAnswer();
             yield return op;
+            if (_disposed) yield break;
             if (op.IsError)
             {
                 if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][WebRTC] CreateAnswer failed: {op.Error.message}");
@@ -154,14 +162,17 @@ namespace PhantomCatWorks.RealtimeP2PKit
             }
             var desc = op.Desc;
             yield return _coroutineRunner.StartCoroutine(SetLocalDescriptionCoroutine(desc));
+            if (_disposed) yield break;
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][WebRTC] answer created & set as local description ({desc.sdp.Length} chars)");
             onAnswerCreated?.Invoke(desc);
         }
 
         private IEnumerator SetLocalDescriptionCoroutine(RTCSessionDescription desc)
         {
+            if (_disposed) yield break;
             var op = _pc.SetLocalDescription(ref desc);
             yield return op;
+            if (_disposed) yield break;
             if (op.IsError)
             {
                 if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][WebRTC] SetLocalDescription failed: {op.Error.message}");
@@ -173,9 +184,11 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
         private IEnumerator SetRemoteDescriptionCoroutine(RTCSessionDescription desc, Action onSuccess)
         {
+            if (_disposed) yield break;
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][WebRTC] setting remote description type={desc.type}");
             var op = _pc.SetRemoteDescription(ref desc);
             yield return op;
+            if (_disposed) yield break;
             if (op.IsError)
             {
                 if (P2PLog.ShouldLog(P2PLogLevel.Error)) Debug.LogError($"[RealtimeP2PKit][WebRTC] SetRemoteDescription failed: {op.Error.message}");
@@ -192,6 +205,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
         public void AddRemoteIceCandidate(RTCIceCandidateInit candidate)
         {
+            if (_disposed) return;
             if (P2PLog.ShouldLog(P2PLogLevel.Verbose)) Debug.Log($"[RealtimeP2PKit][WebRTC] adding remote ICE candidate: {candidate.candidate}");
             if (!_remoteDescriptionSet)
             {
@@ -213,6 +227,8 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log("[RealtimeP2PKit][WebRTC] disposing peer connection");
             _dataChannel?.Close();
             _dataChannel?.Dispose();

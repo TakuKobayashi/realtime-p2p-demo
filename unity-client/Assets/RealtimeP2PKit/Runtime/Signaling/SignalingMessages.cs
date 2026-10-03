@@ -6,7 +6,11 @@ namespace PhantomCatWorks.RealtimeP2PKit
     [Serializable]
     public class RoomSignalEnvelope
     {
-        public string type; // "client-ready" | "offer" | "answer" | "ice-candidate" | "peer-ready" | "peer-left"
+        public string type;
+        public string from;
+        public string to;
+        public string[] peers;
+        public bool isInitiator;
         public string sdp;
         public string candidate;
         public string sdpMid;

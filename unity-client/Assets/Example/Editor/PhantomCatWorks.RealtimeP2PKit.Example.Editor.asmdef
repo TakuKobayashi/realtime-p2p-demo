@@ -4,7 +4,8 @@
     "references": [
         "PhantomCatWorks.RealtimeP2PKit.Example",
         "PhantomCatWorks.RealtimeP2PKit.Editor",
-        "PhantomCatWorks.RealtimeP2PKit"
+        "PhantomCatWorks.RealtimeP2PKit",
+        "UnityEngine.UI"
     ],
     "includePlatforms": ["Editor"],
     "autoReferenced": true

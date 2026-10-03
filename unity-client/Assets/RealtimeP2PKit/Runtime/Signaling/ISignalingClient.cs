@@ -14,7 +14,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
         event Action<string> Disconnected;
         event Action<RoomSignalEnvelope> MessageReceived;
 
-        Task ConnectAsync(string roomId);
+        Task ConnectAsync(string roomId, string playerId, string token);
         void Send(RoomSignalEnvelope message);
         void DispatchMessageQueue();
     }

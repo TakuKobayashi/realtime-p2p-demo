@@ -14,7 +14,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
     public class PacketRouter
     {
         private readonly IPayloadCodec _codec;
-        private readonly Dictionary<byte, Action<byte[]>> _handlers = new();
+        private readonly Dictionary<byte, Action<string, byte[]>> _handlers = new();
 
         public PacketRouter(IPayloadCodec codec)
         {
@@ -22,13 +22,17 @@ namespace PhantomCatWorks.RealtimeP2PKit
         }
 
         public void Register<T>(byte packetId, Action<T> handler)
+            => Register<T>(packetId, (_, value) => handler(value));
+
+        /// <summary>The sender ID comes from the peer connection, not the packet payload.</summary>
+        public void Register<T>(byte packetId, Action<string, T> handler)
         {
-            _handlers[packetId] = raw =>
+            _handlers[packetId] = (senderId, raw) =>
             {
                 var value = _codec.Deserialize<T>(raw);
                 if (P2PNetworkLog.IsEnabled)
                     Debug.Log(P2PNetworkLogFormat.WebRtcReceive(packetId, value, raw.Length + 1));
-                handler(value);
+                handler(senderId, value);
             };
             if (P2PLog.ShouldLog(P2PLogLevel.Info)) Debug.Log($"[RealtimeP2PKit][PacketRouter] registered handler packetId={packetId} type={typeof(T).Name}");
         }
@@ -48,7 +52,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
             return buffer;
         }
 
-        public void Dispatch(byte[] raw)
+        public void Dispatch(byte[] raw, string senderId = null)
         {
             if (raw == null || raw.Length < 1)
             {
@@ -62,7 +66,7 @@ namespace PhantomCatWorks.RealtimeP2PKit
 
             if (_handlers.TryGetValue(packetId, out var handler))
             {
-                handler(body);
+                handler(senderId, body);
             }
             else
             {

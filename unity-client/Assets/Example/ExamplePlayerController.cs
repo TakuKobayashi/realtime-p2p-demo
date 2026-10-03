@@ -4,7 +4,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example
 {
     /// <summary>
     /// Drives the local player's cube with WASD/arrow input and pushes its
-    /// position to the opponent over the P2P data channel at a fixed rate.
+    /// position to every connected participant over P2P data channels at a fixed rate.
     /// Note this script only ever talks to P2PManager.Instance - it never touches
     /// WebRTC, PartyKit or MessagePack directly, which is the point of the library.
     /// </summary>

@@ -44,8 +44,8 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Editor
 
             EditorGUILayout.HelpBox(
                 "Local / Remote の選択はパッケージの Connection Settings と共通です。" +
-                "Player ビルドの環境、WebRTC のシグナリングと STUN は Connection Settings で設定してください。" +
-                "ここではマッチング用 HTTP と通知用 Lobby WebSocket の接続先を設定します。",
+                "Player ビルドの環境と STUN は Connection Settings で設定してください。" +
+                "ここではルーム管理用 HTTP と Example の Room シグナリング WebSocket の接続先を設定します。",
                 MessageType.Info);
 
             _serializedSettings.Update();
@@ -57,8 +57,7 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Editor
 
             EditorGUILayout.HelpBox(
                 "ベース URL を指定してください。HTTP は /api/matchmaking/...、" +
-                "WebSocket は /parties/lobby/{playerId} を自動で追加します。" +
-                "同じサーバーを使う場合は、パッケージの Signaling WebSocket URL と同じ接続先を指定してください。",
+                "WebSocket は /parties/room/{roomId} を自動で追加します。",
                 MessageType.None);
 
             var valid = IsValid(_settings.Local) && IsValid(_settings.Remote);

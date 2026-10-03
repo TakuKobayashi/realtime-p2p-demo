@@ -8,15 +8,15 @@ namespace PhantomCatWorks.RealtimeP2PKit
         Connected,
         Disconnected,
         Failed,
+        WaitingForPeers,
     }
 
     /// <summary>Mutable state for the current (or most recent) P2P session.</summary>
     public class P2PSessionInfo
     {
         public string LocalPlayerId;
-        public string OpponentId;
         public string RoomId;
-        public bool IsInitiator;
+        public bool IsRoomJoined;
         public P2PSessionState State;
     }
 }
