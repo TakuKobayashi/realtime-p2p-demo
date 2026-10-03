@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 55c8db23309d4dbdbff6bfc49cb664aa, type: 3}
   m_Name: ExampleConnectionSettings
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.ExampleConnectionSettings
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.ExampleConnectionSettings
   Local:
     HttpBaseUrl: http://localhost:8787
     WebSocketBaseUrl: ws://localhost:8787

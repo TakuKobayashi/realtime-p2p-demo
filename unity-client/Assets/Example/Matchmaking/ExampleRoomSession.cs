@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
+namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
 {
     /// <summary>Example-only handoff across scenes. No Unity object or WebRTC connection is recreated during handoff.</summary>
     public static class ExampleRoomSession

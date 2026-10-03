@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking;
+using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example
+namespace net.taptappun.RealtimeP2PKit.Example
 {
     public sealed class ExampleMatchingRoomView : MonoBehaviour
     {

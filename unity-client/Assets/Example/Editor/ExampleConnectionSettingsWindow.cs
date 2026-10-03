@@ -2,7 +2,7 @@ using System;
 using UnityEditor;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example.Editor
+namespace net.taptappun.RealtimeP2PKit.Example.Editor
 {
     public sealed class ExampleConnectionSettingsWindow : EditorWindow
     {

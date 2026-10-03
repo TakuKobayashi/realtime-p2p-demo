@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
+namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
 {
     public sealed class HttpMatchmakingClient
     {

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Editor
+namespace net.taptappun.RealtimeP2PKit.Editor
 {
     /// <summary>
     /// Edits the signaling WebSocket URL and STUN servers for the selected environment.

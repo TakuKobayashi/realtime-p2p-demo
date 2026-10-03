@@ -5,7 +5,7 @@ using Newtonsoft.Json;
 using NativeWebSocket;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Signaling client for the "Room" party (a partyserver Durable Object, see

@@ -1,7 +1,7 @@
 using System;
 using Newtonsoft.Json;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Builds formatted strings describing WebSocket and WebRTC traffic.

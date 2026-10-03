@@ -1,6 +1,6 @@
 {
-    "name": "PhantomCatWorks.RealtimeP2PKit",
-    "rootNamespace": "PhantomCatWorks.RealtimeP2PKit",
+    "name": "net.taptappun.RealtimeP2PKit",
+    "rootNamespace": "net.taptappun.RealtimeP2PKit",
     "references": [
         "Unity.WebRTC"
     ],

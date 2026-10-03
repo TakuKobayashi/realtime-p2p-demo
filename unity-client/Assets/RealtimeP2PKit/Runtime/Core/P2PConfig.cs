@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Non-endpoint tunables for a RealtimeP2PKit session, as a ScriptableObject asset.

@@ -1,7 +1,7 @@
 using System;
 using System.Threading.Tasks;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Abstraction over the signaling transport used to exchange SDP offer/answer

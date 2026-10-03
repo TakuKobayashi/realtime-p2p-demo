@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Resolves which signaling WebSocket and STUN servers to connect to.

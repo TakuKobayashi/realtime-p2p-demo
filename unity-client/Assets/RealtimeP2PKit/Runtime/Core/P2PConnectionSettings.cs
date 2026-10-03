@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     [CreateAssetMenu(menuName = "RealtimeP2PKit/Connection Settings", fileName = "P2PConnectionSettings")]
     public sealed class P2PConnectionSettings : ScriptableObject

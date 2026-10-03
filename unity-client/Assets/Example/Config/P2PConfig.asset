@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c1fad1756e3dc4e8e82ff994f32d0a1c, type: 3}
   m_Name: P2PConfig
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit::PhantomCatWorks.RealtimeP2PKit.P2PConfig
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit::net.taptappun.RealtimeP2PKit.P2PConfig
   DataChannelLabel: gameplay
   Reliable: 0
   MaxRetransmits: 0

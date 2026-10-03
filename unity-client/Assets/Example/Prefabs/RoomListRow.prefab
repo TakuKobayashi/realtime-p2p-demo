@@ -111,7 +111,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5ef2c72971664e96a6cdce94fa0075ae, type: 3}
   m_Name:
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.ExampleRoomRow
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.ExampleRoomRow
   _roomText: {fileID: 8446176333105404301}
   _capacityText: {fileID: 3981329523252145929}
   _joinButton: {fileID: 5069569988870468795}

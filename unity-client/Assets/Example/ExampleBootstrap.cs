@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking;
+using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example
+namespace net.taptappun.RealtimeP2PKit.Example
 {
     [RequireComponent(typeof(ExampleMatchmakingFlow))]
     public sealed class ExampleBootstrap : MonoBehaviour

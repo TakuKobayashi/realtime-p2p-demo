@@ -1,0 +1,11 @@
+{
+    "name": "net.taptappun.RealtimeP2PKit.Example.Editor",
+    "rootNamespace": "net.taptappun.RealtimeP2PKit.Example.Editor",
+    "references": [
+        "net.taptappun.RealtimeP2PKit.Example",
+        "net.taptappun.RealtimeP2PKit.Editor",
+        "net.taptappun.RealtimeP2PKit"
+    ],
+    "includePlatforms": ["Editor"],
+    "autoReferenced": true
+}

@@ -1,9 +1,9 @@
 using System;
-using PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking;
+using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example
+namespace net.taptappun.RealtimeP2PKit.Example
 {
     public sealed class ExampleRoomRow : MonoBehaviour
     {

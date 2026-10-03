@@ -1,4 +1,4 @@
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Pluggable codec for application payloads sent over the WebRTC data channel.

@@ -1,6 +1,6 @@
 using MessagePack;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example
+namespace net.taptappun.RealtimeP2PKit.Example
 {
     /// <summary>
     /// Example application-level packet: this scene syncs each player's

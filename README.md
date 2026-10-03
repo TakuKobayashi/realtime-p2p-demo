@@ -109,7 +109,7 @@ Unity 6000.3系(Unity 6 LTS相当)で作成しています。`Packages/manifest.
    `manifest.json`からは削除しました。NuGet版と共存すると型の重複が起きるため、NuGet版に一本化しています)
 4. `Assets/Packages/` に `MessagePack.x.x.x` と `Colyseus.NativeWebSocket.x.x.x` が展開されたことを確認
 
-**過去のバージョンで実際に起きていた不具合**: `PhantomCatWorks.RealtimeP2PKit.asmdef` に
+**過去のバージョンで実際に起きていた不具合**: `net.taptappun.RealtimeP2PKit.asmdef` に
 `"overrideReferences": true` を設定していたため、Unityの「プロジェクト内のDLLを自動参照する」
 デフォルト挙動が無効化され、明記した`MessagePack.dll`だけが参照されて`Newtonsoft.Json.dll`や
 NativeWebSocketのDLLが参照されない状態になっていました(Package自体は入っているのに

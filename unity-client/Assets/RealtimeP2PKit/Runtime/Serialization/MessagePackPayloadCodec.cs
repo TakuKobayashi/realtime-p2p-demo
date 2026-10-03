@@ -1,7 +1,7 @@
 using MessagePack;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Codec backed by MessagePack-CSharp (github.com/MessagePack-CSharp/MessagePack-CSharp),

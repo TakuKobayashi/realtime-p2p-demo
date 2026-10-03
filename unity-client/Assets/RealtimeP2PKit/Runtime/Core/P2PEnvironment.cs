@@ -1,4 +1,4 @@
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Which configured signaling and STUN endpoints to use.

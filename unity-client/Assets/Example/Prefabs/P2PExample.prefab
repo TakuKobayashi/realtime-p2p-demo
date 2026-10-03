@@ -124,7 +124,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fefb9ccc6617b5a4d943cc981a4eccb9, type: 3}
   m_Name:
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.ExampleBootstrap
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.ExampleBootstrap
   _config: {fileID: 11400000, guid: f9f6612b5fc8645708ebeab78ea24d9f, type: 2}
   _localPlayerPrefab: {fileID: 8865054883985821789, guid: 488455621e7a94cc2a9b44ae621886a4, type: 3}
   _remotePlayerPrefab: {fileID: 7790654671364130968, guid: 494df3e630cce4ea9a03c32d6c710286, type: 3}
@@ -140,7 +140,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 85c9498ec6ab46909a450e55df47036c, type: 3}
   m_Name:
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking.ExampleMatchmakingFlow
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.Matchmaking.ExampleMatchmakingFlow
 --- !u!1 &3103414709628553933
 GameObject:
   m_ObjectHideFlags: 0
@@ -692,7 +692,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4b294bedeae84a65b7cbc9200ae13b6e, type: 3}
   m_Name:
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.ExampleGameplayView
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.ExampleGameplayView
   _roomText: {fileID: 5595129854839984126}
   _playerText: {fileID: 3682603992369895178}
   _statusText: {fileID: 3401521904902187821}

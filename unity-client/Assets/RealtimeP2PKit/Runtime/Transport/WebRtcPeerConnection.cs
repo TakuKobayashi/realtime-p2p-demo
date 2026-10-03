@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using Unity.WebRTC;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Thin wrapper around Unity.WebRTC's RTCPeerConnection plus a single data

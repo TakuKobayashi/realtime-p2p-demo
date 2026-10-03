@@ -1,6 +1,6 @@
 using System;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>Pure string formatting helpers - none of these log anything themselves.</summary>
     public static class P2PHexFormat

@@ -124,6 +124,6 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7b69216216f1a41aca338a63dfeb4d7e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.ExamplePlayerController
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.ExamplePlayerController
   _moveSpeed: 4
   _sendIntervalSeconds: 0.05

@@ -1,6 +1,6 @@
 using System;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
+namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
 {
     [Serializable]
     public sealed class ExamplePlayerSession

@@ -6,7 +6,7 @@ using Newtonsoft.Json;
 using NativeWebSocket;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
+namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
 {
     /// <summary>New-room stream. The scene owns reconnects and its received RoomId cursor.</summary>
     public sealed class LobbyListener : IDisposable

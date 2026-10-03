@@ -1,6 +1,6 @@
 using System;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>Envelope for messages relayed inside a PartyKit game room (SDP/ICE).</summary>
     [Serializable]

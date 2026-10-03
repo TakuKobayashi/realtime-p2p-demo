@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example
+namespace net.taptappun.RealtimeP2PKit.Example
 {
     /// <summary>
     /// Drives the local player's cube with WASD/arrow input and pushes its

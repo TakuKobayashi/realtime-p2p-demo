@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
+namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
 {
     /// <summary>HTTP snapshots and reservations. Each scene owns its WebSocket lifetime.</summary>
     [DisallowMultipleComponent]

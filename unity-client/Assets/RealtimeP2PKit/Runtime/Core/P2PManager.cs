@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Unity.WebRTC;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>A room-scoped mesh: one WebRTC connection per remote participant, without a fixed peer limit.</summary>
     [DisallowMultipleComponent]

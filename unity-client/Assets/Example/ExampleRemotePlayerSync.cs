@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example
+namespace net.taptappun.RealtimeP2PKit.Example
 {
     /// <summary>One proxy per remote sender; the scene controller owns packet registration.</summary>
     public sealed class ExampleRemotePlayerSync : MonoBehaviour

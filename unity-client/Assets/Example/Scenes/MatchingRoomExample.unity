@@ -859,7 +859,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 639ef8f2643944a0ba5964a20c51833a, type: 3}
   m_Name:
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.ExampleMatchingRoomView
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.ExampleMatchingRoomView
   _capacityInput: {fileID: 259740801}
   _createButton: {fileID: 1896443969}
   _refreshButton: {fileID: 1075405344}
@@ -1653,7 +1653,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f3cab9247c74447a91094dc2d8ac2d67, type: 3}
   m_Name:
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.MatchingRoomExampleController
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.MatchingRoomExampleController
   _defaultMaxPlayers: 4
   _view: {fileID: 1051577231}
 --- !u!114 &1800000003
@@ -1667,7 +1667,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 85c9498ec6ab46909a450e55df47036c, type: 3}
   m_Name:
-  m_EditorClassIdentifier: PhantomCatWorks.RealtimeP2PKit.Example::PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking.ExampleMatchmakingFlow
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.Matchmaking.ExampleMatchmakingFlow
 --- !u!1 &1896443965
 GameObject:
   m_ObjectHideFlags: 0

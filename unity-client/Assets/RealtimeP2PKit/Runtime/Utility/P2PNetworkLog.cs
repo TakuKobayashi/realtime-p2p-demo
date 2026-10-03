@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit
 {
     /// <summary>
     /// Holds only the on/off state for raw network traffic tracing (WebSocket/WebRTC

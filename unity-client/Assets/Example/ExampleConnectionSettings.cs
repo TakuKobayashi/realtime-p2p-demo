@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace PhantomCatWorks.RealtimeP2PKit.Example
+namespace net.taptappun.RealtimeP2PKit.Example
 {
     /// <summary>Example-only matchmaking endpoints, included in Player builds through Resources.</summary>
     [CreateAssetMenu(menuName = "RealtimeP2PKit/Example Connection Settings", fileName = "ExampleConnectionSettings")]

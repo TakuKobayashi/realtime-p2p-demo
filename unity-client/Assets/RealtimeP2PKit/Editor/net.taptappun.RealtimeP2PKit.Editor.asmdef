@@ -1,8 +1,8 @@
 {
-    "name": "PhantomCatWorks.RealtimeP2PKit.Editor",
-    "rootNamespace": "PhantomCatWorks.RealtimeP2PKit.Editor",
+    "name": "net.taptappun.RealtimeP2PKit.Editor",
+    "rootNamespace": "net.taptappun.RealtimeP2PKit.Editor",
     "references": [
-        "PhantomCatWorks.RealtimeP2PKit"
+        "net.taptappun.RealtimeP2PKit"
     ],
     "includePlatforms": [
         "Editor"
