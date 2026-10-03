@@ -124,19 +124,18 @@ Unityの Console にエラーが出ていない状態が正常です。エラー
 
 ### 2-4. Example Sceneを使う
 
-このリポジトリには動作例のSceneとPrefabを同梱しています。必要なら
-メニュー `RealtimeP2PKit > Build Example Scene` で再生成できます:
+このリポジトリには動作例のSceneとPrefabを同梱しています。
+`MatchingRoomExample.unity` を開いて実行してください。
 
 - `Assets/Example/Scenes/P2PExample.unity`
 - `Assets/Example/Scenes/MatchingRoomExample.unity`（Build Settingsの開始シーン）
 - `Assets/Example/Prefabs/LocalPlayer.prefab`, `Assets/Example/Prefabs/RemotePlayer.prefab`
-- `Assets/Example/Config/P2PConfig.asset`(未作成の場合)
+- `Assets/Example/Config/P2PConfig.asset`（任意の通信設定）
 
 ゲーム画面はUGUIで作成しています。MatchingRoomExampleの定員入力・作成・Join・一覧更新は
 InputField / Button / ScrollRect、P2PExampleの人数表示・退出操作はText / Buttonです。
 Canvasと参照はScene・Prefabに保存済みで、Hierarchy / Inspectorから配置や見た目を編集できます。
 一覧の各行は `Assets/Example/Prefabs/RoomListRow.prefab`、表示処理は `Assets/Example/UI/` にあります。
-`Build Example Scene`で再生成した場合もUGUIを生成します。
 
 一覧は最初に `GET /api/matchmaking/rooms` で取得し、その最大RoomId（空なら `"0"`）を使って
 `/parties/lobby/rooms` にWebSocket接続します。接続後に
@@ -149,8 +148,7 @@ HTTP取得から接続までの間、および切断中に作られたRoomも、
 接続先(サーバーのURL)は`P2PConfig`アセットではなく、次の「2-5. 接続先(Local/Remote)を設定する」で
 説明するEditorツールで設定します。
 
-自分でSceneを組む場合は、README末尾の「手動でSceneを組む場合」を参照してください
-(`Build Example Scene`が生成する内容と同じものを手作業で再現する手順です)。
+自分でSceneを組む場合は、README末尾の「手動でSceneを組む場合」を参照してください。
 
 ### 2-5. 接続先(Local/Remote)を設定する
 
@@ -233,7 +231,7 @@ P2PManager.Instance.Send(1, new MyPacket { ... });
 
 ## 手動でSceneを組む場合
 
-`RealtimeP2PKit > Build Example Scene` を使わず自分でSceneを構築する場合、必要なGameObjectは
+自分でSceneを構築する場合、必要なGameObjectは
 以下の3つだけです(いずれも空のSceneに配置):
 
 1. **`ExampleBootstrap`** という名前のGameObjectを作成し、`ExampleBootstrap`コンポーネントを追加。
