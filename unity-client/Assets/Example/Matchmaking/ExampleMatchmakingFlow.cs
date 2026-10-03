@@ -17,15 +17,15 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
         private bool _connecting;
         private bool _disposed;
 
-        public void StartQueue(string playerId, string apiUrl = null)
+        public async Task StartQueue(string playerId)
         {
-            Configure(playerId, apiUrl);
-            _ = RunQueueAsync();
+            Configure(playerId);
+            await RunQueueAsync();
         }
 
-        private void Configure(string playerId, string apiUrl)
+        private void Configure(string playerId)
         {
-            apiUrl = (apiUrl ?? ExampleEndpoints.GetHttpBaseUrl()).Trim().TrimEnd('/');
+            string apiUrl = ExampleEndpoints.GetHttpBaseUrl().Trim().TrimEnd('/');
             if (string.IsNullOrWhiteSpace(playerId)) throw new ArgumentException("Player ID is required.", nameof(playerId));
             if (!Uri.TryCreate(apiUrl, UriKind.Absolute, out var uri) ||
                 (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
@@ -73,29 +73,29 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Matchmaking
             await P2PManager.Instance.ConnectToRoomAsync(_playerId, roomId, opponentId, isInitiator);
         }
 
-        public async Task<MachingRoom> CreateRoomAsync(string playerId, string apiUrl = null)
+        public async Task<MachingRoom> CreateRoomAsync(string playerId)
         {
-            Configure(playerId, apiUrl);
+            Configure(playerId);
             var room = await _client.CreateRoomAsync(playerId);
             await P2PManager.Instance.ConnectToRoomAsync(playerId, room.id, null, true);
             return room;
         }
 
-        public Task<List<MachingRoom>> ListRoomsAsync(string playerId, string apiUrl = null)
+        public Task<List<MachingRoom>> ListRoomsAsync(string playerId)
         {
-            Configure(playerId, apiUrl);
+            Configure(playerId);
             return _client.ListRoomsAsync(playerId);
         }
 
-        public async Task JoinRoomAsync(string playerId, string apiUrl, MachingRoom room)
+        public async Task JoinRoomAsync(string playerId, MachingRoom room)
         {
-            Configure(playerId, apiUrl);
+            Configure(playerId);
             var joined = await _client.JoinRoomAsync(room.id, playerId);
             await P2PManager.Instance.ConnectToRoomAsync(playerId, joined.id, joined.hostPlayerId, false);
         }
 
-        public Task JoinRoomAsync(string playerId, MachingRoom room)
-            => JoinRoomAsync(playerId, ExampleEndpoints.GetHttpBaseUrl(), room);
+        public Task JoinRoomAsync(MachingRoom room)
+            => JoinRoomAsync(ExampleEndpoints.GetHttpBaseUrl(), room);
 
         private void Update() => _lobby?.DispatchMessageQueue();
 
