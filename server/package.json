@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "wrangler": "wrangler",
+    "format": "prettier --config .prettierrc --write \"src/**/*.{ts,js}\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "wrangler d1 migrations apply realtime-p2p-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply realtime-p2p-db --remote",
@@ -20,6 +22,7 @@
     "@cloudflare/workers-types": "^4.20260702.1",
     "@types/node": "^22.20.1",
     "drizzle-kit": "^0.28.1",
+    "prettier": "^3.9.9",
     "typescript": "^5.9.3",
     "vitest": "^5.0.3",
     "wrangler": "^3.114.17"

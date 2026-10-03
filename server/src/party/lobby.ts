@@ -1,6 +1,6 @@
-import { Server, type Connection } from "partyserver";
-import type { Env } from "../env";
-import { listRooms } from "../rooms";
+import { Server, type Connection } from 'partyserver';
+import type { Env } from '../env';
+import { listRooms } from '../rooms';
 
 type Subscription = { lastRoomId: number };
 
@@ -16,25 +16,39 @@ export class Lobby extends Server<Env> {
   }
 
   onConnect(connection: Connection) {
-    if (this.name !== "rooms") connection.close(4004, "use /parties/lobby/rooms");
+    if (this.name !== 'rooms') connection.close(4004, 'use /parties/lobby/rooms');
   }
 
   async onMessage(connection: Connection<Subscription>, raw: string | ArrayBuffer | ArrayBufferView) {
-    if (typeof raw !== "string" || raw.length > 1024) { connection.close(4000, "invalid message"); return; }
+    if (typeof raw !== 'string' || raw.length > 1024) {
+      connection.close(4000, 'invalid message');
+      return;
+    }
     let message: { type?: string; lastRoomId?: unknown };
-    try { message = JSON.parse(raw); } catch { connection.close(4000, "invalid JSON"); return; }
-    if (!message || typeof message !== "object") { connection.close(4000, "invalid message"); return; }
-    if (message.type === "ping") { connection.send(JSON.stringify({ type: "pong" })); return; }
-    const cursor = typeof message.lastRoomId === "string" && /^(0|[1-9]\d*)$/.test(message.lastRoomId)
-      ? Number(message.lastRoomId) : NaN;
-    if (message.type !== "subscribe" || !Number.isSafeInteger(cursor)) {
-      connection.close(4000, "send subscribe with a non-negative lastRoomId string"); return;
+    try {
+      message = JSON.parse(raw);
+    } catch {
+      connection.close(4000, 'invalid JSON');
+      return;
+    }
+    if (!message || typeof message !== 'object') {
+      connection.close(4000, 'invalid message');
+      return;
+    }
+    if (message.type === 'ping') {
+      connection.send(JSON.stringify({ type: 'pong' }));
+      return;
+    }
+    const cursor = typeof message.lastRoomId === 'string' && /^(0|[1-9]\d*)$/.test(message.lastRoomId) ? Number(message.lastRoomId) : NaN;
+    if (message.type !== 'subscribe' || !Number.isSafeInteger(cursor)) {
+      connection.close(4000, 'send subscribe with a non-negative lastRoomId string');
+      return;
     }
     await this.enqueue(async () => {
       if (connection.readyState !== WebSocket.OPEN) return;
       connection.setState({ lastRoomId: cursor });
       await this.sendNewRooms([connection]);
-      if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ type: "subscribed" }));
+      if (connection.readyState === WebSocket.OPEN) connection.send(JSON.stringify({ type: 'subscribed' }));
     });
   }
 
@@ -47,16 +61,16 @@ export class Lobby extends Server<Env> {
       if (connection.readyState !== WebSocket.OPEN) continue;
       const delta = rooms.filter((room) => Number(room.id) > connection.state!.lastRoomId);
       if (delta.length === 0) continue;
-      connection.send(JSON.stringify({ type: "rooms-created", rooms: delta }));
+      connection.send(JSON.stringify({ type: 'rooms-created', rooms: delta }));
       connection.setState({ lastRoomId: Number(delta[delta.length - 1].id) });
     }
   }
 
   async onRequest(request: Request): Promise<Response> {
-    if (this.name !== "rooms" || request.method !== "POST" || new URL(request.url).pathname !== "/publish")
-      return new Response("not found", { status: 404 });
+    if (this.name !== 'rooms' || request.method !== 'POST' || new URL(request.url).pathname !== '/publish')
+      return new Response('not found', { status: 404 });
     // Read committed rows: concurrent creation notifications may arrive out of order.
     await this.enqueue(() => this.sendNewRooms([...this.getConnections<Subscription>()]));
-    return new Response("ok");
+    return new Response('ok');
   }
 }
