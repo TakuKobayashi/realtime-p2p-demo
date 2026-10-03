@@ -8,8 +8,8 @@
     "db:migrate:local": "wrangler d1 migrations apply realtime-p2p-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply realtime-p2p-db --remote",
     "db:drop:all:local": "node --no-warnings --import tsx scripts/drop-local-db.ts",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
-    "test": "node --experimental-strip-types --test tests/rooms.integration.spec.ts"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "drizzle-orm": "^0.36.4",
@@ -21,6 +21,7 @@
     "@types/node": "^22.20.1",
     "drizzle-kit": "^0.28.1",
     "typescript": "^5.9.3",
+    "vitest": "^5.0.3",
     "wrangler": "^3.114.17"
   }
 }

@@ -280,7 +280,9 @@ P2PExample側の `ExampleBootstrap` がWebSocketに接続します。IDはサー
 新しい通信プロトコルで旧ルームを継続することはできません。IDは識別にだけ使い、ホスト権限やOffer役割をIDから導きません。
 セキュリティ用トークンはIDとは別に発行します。
 
-Node.js 22以降で `pnpm typecheck` と `pnpm test` を実行できます。統合テストは一時ローカルD1/Workerを使い、
+Node.js 22.12以降で `pnpm typecheck` と `pnpm test` を実行できます。
+`server/tests/rooms.integration.spec.ts` をVitestで実行し、既存の `tsconfig.json` でテストも型チェックします。
+統合テストは一時ローカルD1/Workerを使い、
 複数参加・同時Joinの定員・宛先付きシグナリング・退出・切断・空ルーム削除・期限切れを確認します。
 
 ## ライブラリの再利用について
