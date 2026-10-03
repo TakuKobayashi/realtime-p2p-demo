@@ -1,6 +1,5 @@
 using System;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -15,32 +14,6 @@ namespace PhantomCatWorks.RealtimeP2PKit.Example.Editor
         private static readonly Color PanelColor = new(0.08f, 0.12f, 0.19f, 0.96f);
         private static readonly Color RowColor = new(0.14f, 0.20f, 0.29f, 1f);
         private static readonly Color AccentColor = new(0.12f, 0.47f, 0.72f, 1f);
-
-        [MenuItem("RealtimeP2PKit/Upgrade Example UI to UGUI")]
-        public static void UpgradeScenes()
-        {
-            var matchingScene = EditorSceneManager.OpenScene("Assets/Example/Scenes/MatchingRoomExample.unity");
-            var matching = Object.FindFirstObjectByType<MatchingRoomExampleController>();
-            AddMatchingUi(matching);
-            EnsureEventSystem();
-            EditorSceneManager.SaveScene(matchingScene);
-
-            const string prefabPath = "Assets/Example/Prefabs/P2PExample.prefab";
-            var prefab = PrefabUtility.LoadPrefabContents(prefabPath);
-            try
-            {
-                AddGameplayUi(prefab.GetComponent<ExampleBootstrap>());
-                PrefabUtility.SaveAsPrefabAsset(prefab, prefabPath);
-            }
-            finally { PrefabUtility.UnloadPrefabContents(prefab); }
-
-            var gameplayScene = EditorSceneManager.OpenScene("Assets/Example/Scenes/P2PExample.unity");
-            AddGameplayUi(Object.FindFirstObjectByType<ExampleBootstrap>());
-            EnsureEventSystem();
-            EditorSceneManager.SaveScene(gameplayScene);
-            AssetDatabase.SaveAssets();
-            Debug.Log("[P2P Example] UGUI saved in both scenes and the P2PExample prefab.");
-        }
 
         public static void EnsureEventSystem()
         {
