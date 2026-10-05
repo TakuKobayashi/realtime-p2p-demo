@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { afterEach, expect, test, vi } from 'vitest';
-import { handleRequestError, InvalidPlayerCredentialsError } from '../src/errors';
+import { InvalidPlayerCredentialsError } from '../src/errors';
+import { createErrorHandler } from '../src/utils/errors';
+import { mapDatabaseError } from '../src/db/errors';
 import { HTTPException } from 'hono/http-exception';
 import type { Env } from '../src/env';
 
@@ -19,7 +21,7 @@ function failingApp(error: Error) {
     throw error;
   });
   app.route('/api/matchmaking', routes);
-  app.onError(handleRequestError);
+  app.onError(createErrorHandler<{ Bindings: Env }>(mapDatabaseError));
   return app;
 }
 
@@ -60,4 +62,29 @@ test('HTTP errors preserve their status and JSON message', async () => {
   });
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({ error: 'invalid room id' });
+});
+
+test('the generic handler accepts another binding type and a caller-provided error mapping', async () => {
+  const app = new Hono<{ Bindings: { validationMessage: string } }>();
+  app.post('/custom', (c) => {
+    throw new Error(c.env.validationMessage);
+  });
+  app.onError(
+    createErrorHandler<{ Bindings: { validationMessage: string } }>((error) => new HTTPException(422, { message: error.message })),
+  );
+  const response = await app.request('/custom', { method: 'POST' }, { validationMessage: 'custom validation failed' });
+  expect(response.status).toBe(422);
+  expect(await response.json()).toEqual({ error: 'custom validation failed' });
+});
+
+test('the generic handler has no built-in membership or database rules', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  const app = new Hono();
+  app.post('/custom', () => {
+    throw new Error('D1_ERROR: UNIQUE constraint failed: room_members.player_id: SQLITE_CONSTRAINT');
+  });
+  app.onError(createErrorHandler());
+  const response = await app.request('/custom', { method: 'POST' });
+  expect(response.status).toBe(500);
+  expect(await response.json()).toEqual({ error: 'server error' });
 });
