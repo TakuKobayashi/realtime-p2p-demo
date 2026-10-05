@@ -4,6 +4,7 @@ import { createDb } from '../db/client';
 import { gameRooms, roomMembers } from '../db/schema';
 import type { Env } from '../env';
 import { ALARM_MS, authenticate, deleteEmptyRoom, LEASE_MS, numericId, removeMember } from '../rooms';
+import { parseJson } from '../utils/json';
 
 type MemberState = { playerId: string; ready: boolean };
 type Signal = { type: string; to?: string; sdp?: string; candidate?: string; sdpMid?: string; sdpMLineIndex?: number };
@@ -15,40 +16,42 @@ export class Room extends Server<Env> {
   private members() {
     return [...this.getConnections<MemberState>()].filter((c) => c.state?.ready);
   }
+
   private announceLeft(playerId: string, without?: string) {
     for (const peer of this.members()) {
-      if (peer.id !== without) peer.send(JSON.stringify({ type: 'peer-left', from: playerId }));
+      if (peer.id !== without) {
+        peer.send(JSON.stringify({ type: 'peer-left', from: playerId }));
+      }
     }
   }
+
   private async schedule() {
     // Never postpone an earlier cleanup alarm when more users join.
     const alarm = await this.ctx.storage.getAlarm();
-    if (alarm === null) await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
+    if (alarm === null) {
+      await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
+    }
   }
 
-  async onRequest(request: Request): Promise<Response> {
+  async scheduleCleanup(): Promise<void> {
     const roomId = numericId(this.name);
-    if (roomId === null) return new Response('invalid room id', { status: 400 });
-    const path = new URL(request.url).pathname;
-    if (request.method === 'POST' && path === '/schedule') {
-      // Older local workerd does not persist ctx.id.name in alarm records.
-      await this.ctx.storage.put('roomId', roomId);
-      await this.schedule();
-      return new Response('ok');
-    }
-    if (request.method === 'POST' && path === '/leave') {
-      const { playerId } = await request.json<{ playerId: number }>();
-      const removed = await removeMember(this.env.DB, roomId, playerId);
-      if (removed) this.announceLeft(String(playerId));
-      for (const connection of this.getConnections<MemberState>()) {
-        if (connection.state?.playerId === String(playerId)) {
-          connection.setState({ playerId: String(playerId), ready: false });
-          connection.close(1000, 'left room');
-        }
+    if (roomId === null) throw new Error('invalid room id');
+    // Persist the room ID so cleanup can resume after hibernation.
+    await this.ctx.storage.put('roomId', roomId);
+    await this.schedule();
+  }
+
+  async leave(playerId: number): Promise<void> {
+    const roomId = numericId(this.name);
+    if (roomId === null) throw new Error('invalid room id');
+    const removed = await removeMember(this.env.DB, roomId, playerId);
+    if (removed) this.announceLeft(String(playerId));
+    for (const connection of this.getConnections<MemberState>()) {
+      if (connection.state?.playerId === String(playerId)) {
+        connection.setState({ playerId: String(playerId), ready: false });
+        connection.close(1000, 'left room');
       }
-      return Response.json({ status: 'ok' });
     }
-    return new Response('not found', { status: 404 });
   }
 
   async onConnect(connection: Connection<MemberState>, context: ConnectionContext) {
@@ -81,13 +84,10 @@ export class Room extends Server<Env> {
   }
 
   async onMessage(connection: Connection<MemberState>, raw: string | ArrayBuffer | ArrayBufferView) {
-    if (!connection.state || typeof raw !== 'string' || raw.length > 131072) return;
-    let message: Signal;
-    try {
-      message = JSON.parse(raw) as Signal;
-    } catch {
-      return;
-    }
+    // The protocol uses JSON text frames and specifies no application size limit.
+    // Cloudflare bounds WebSocket receives: https://developers.cloudflare.com/durable-objects/platform/limits/
+    if (!connection.state || typeof raw !== 'string') return;
+    const message = parseJson<Signal>(raw);
     if (!message || typeof message.type !== 'string') return;
     const playerId = connection.state.playerId;
     if (message.type === 'heartbeat' || message.type === 'client-ready') {
@@ -143,10 +143,12 @@ export class Room extends Server<Env> {
     const removed = await removeMember(this.env.DB, Number(this.name), Number(connection.state.playerId), connection.id);
     if (removed && connection.state.ready) this.announceLeft(connection.state.playerId, connection.id);
   }
+
   async onError(connection: Connection<MemberState>) {
     await this.onClose(connection);
     connection.close(1011, 'socket error');
   }
+
   async onAlarm() {
     const roomId = await this.ctx.storage.get<number>('roomId');
     if (roomId === undefined) return; // Ignore legacy 1:1 alarms after upgrading.
@@ -161,13 +163,17 @@ export class Room extends Server<Env> {
     for (const member of result[0]) {
       if (!member.connectionId) continue;
       const connection = this.getConnection<MemberState>(member.connectionId);
-      if (connection?.state?.ready) this.announceLeft(String(member.playerId), connection.id);
+      if (connection?.state?.ready) {
+        this.announceLeft(String(member.playerId), connection.id);
+      }
       if (connection) {
         connection.setState({ playerId: String(member.playerId), ready: false });
         connection.close(4003, 'heartbeat timeout');
       }
     }
     const room = await db.select({ id: gameRooms.id }).from(gameRooms).where(eq(gameRooms.id, roomId)).get();
-    if (room) await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
+    if (room) {
+      await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
+    }
   }
 }

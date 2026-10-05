@@ -17,8 +17,12 @@ function isMembershipConflict(error: Error): boolean {
 export const handleRequestError: ErrorHandler<{ Bindings: Env }> = (error, c) => {
   const path = routePath(c);
   if (c.req.method === 'POST' && isMembershipConflict(error)) {
-    if (path === '/api/matchmaking/rooms') return c.json({ error: 'leave the current room first' }, 409);
-    if (path === '/api/matchmaking/rooms/:roomId/join') return c.json({ error: 'already joined a room' }, 409);
+    if (path === '/api/matchmaking/rooms') {
+      return c.json({ error: 'leave the current room first' }, 409);
+    }
+    if (path === '/api/matchmaking/rooms/:roomId/join') {
+      return c.json({ error: 'already joined a room' }, 409);
+    }
   }
   console.error('request failed', error);
   return c.json({ error: 'server error' }, 500);

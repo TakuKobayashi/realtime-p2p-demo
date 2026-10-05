@@ -1,6 +1,7 @@
 import { Server, type Connection } from 'partyserver';
 import type { Env } from '../env';
 import { listRooms } from '../rooms';
+import { parseJson } from '../utils/json';
 
 type Subscription = { lastRoomId: number };
 
@@ -20,14 +21,14 @@ export class Lobby extends Server<Env> {
   }
 
   async onMessage(connection: Connection<Subscription>, raw: string | ArrayBuffer | ArrayBufferView) {
-    if (typeof raw !== 'string' || raw.length > 1024) {
+    // The protocol uses JSON text frames and specifies no application size limit.
+    // Cloudflare bounds WebSocket receives: https://developers.cloudflare.com/durable-objects/platform/limits/
+    if (typeof raw !== 'string') {
       connection.close(4000, 'invalid message');
       return;
     }
-    let message: { type?: string; lastRoomId?: unknown };
-    try {
-      message = JSON.parse(raw);
-    } catch {
+    const message = parseJson<{ type?: string; lastRoomId?: unknown }>(raw);
+    if (message === undefined) {
       connection.close(4000, 'invalid JSON');
       return;
     }
@@ -66,11 +67,11 @@ export class Lobby extends Server<Env> {
     }
   }
 
-  async onRequest(request: Request): Promise<Response> {
-    if (this.name !== 'rooms' || request.method !== 'POST' || new URL(request.url).pathname !== '/publish')
-      return new Response('not found', { status: 404 });
+  async publishRooms(): Promise<void> {
+    if (this.name !== 'rooms') {
+      throw new Error('room discovery requires the rooms lobby');
+    }
     // Read committed rows: concurrent creation notifications may arrive out of order.
     await this.enqueue(() => this.sendNewRooms([...this.getConnections<Subscription>()]));
-    return new Response('ok');
   }
 }

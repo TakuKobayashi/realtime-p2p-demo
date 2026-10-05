@@ -3,7 +3,7 @@ import { and, count, eq, exists, gt, isNull, lt, lte, or, sql } from 'drizzle-or
 import { createDb } from '../db/client';
 import { gameRooms, players, roomMembers } from '../db/schema';
 import type { Env } from '../env';
-import { authenticate, controlRoom, LEASE_MS, listRooms, numericId, publishRooms, roomResponse } from '../rooms';
+import { authenticate, getRoom, LEASE_MS, listRooms, numericId, publishRooms, roomResponse } from '../rooms';
 
 const matchmaking = new Hono<{ Bindings: Env }>();
 matchmaking.post('/players', async (c) => {
@@ -15,10 +15,13 @@ matchmaking.post('/players', async (c) => {
 matchmaking.post('/rooms', async (c) => {
   const body = await c.req.json<{ playerId?: string; token?: string; maxPlayers?: number }>();
   const playerId = await authenticate(c.env.DB, body.playerId, body.token);
-  if (playerId === null) return c.json({ error: 'invalid player credentials' }, 401);
+  if (playerId === null) {
+    return c.json({ error: 'invalid player credentials' }, 401);
+  }
   const maxPlayers = body.maxPlayers ?? 0;
-  if (!Number.isSafeInteger(maxPlayers) || maxPlayers < 0)
+  if (!Number.isSafeInteger(maxPlayers) || maxPlayers < 0) {
     return c.json({ error: 'maxPlayers must be a non-negative integer (0 = unlimited)' }, 400);
+  }
   const db = createDb(c.env.DB);
   const now = Date.now();
   // D1 batch is transactional: creator reservation and room both exist or neither does.
@@ -32,8 +35,8 @@ matchmaking.post('/rooms', async (c) => {
     db.insert(roomMembers).values({ roomId: sql<number>`last_insert_rowid()`, playerId, expiresAt: now + LEASE_MS }),
   ]);
   const roomId = results[1][0].id;
-  const scheduled = await controlRoom(c.env, roomId, 'schedule');
-  if (!scheduled.ok) throw new Error('could not schedule room cleanup');
+  const room = await getRoom(c.env, roomId);
+  await room.scheduleCleanup();
   c.executionCtx.waitUntil(publishRooms(c.env).catch((error) => console.error('room publication failed', error)));
   return c.json(await roomResponse(c.env.DB, roomId), 201);
 });
@@ -91,10 +94,8 @@ matchmaking.post('/rooms/:roomId/join', async (c) => {
   if (results[1].meta.changes !== 1) {
     return c.json({ error: 'room is full or no longer available' }, 409);
   }
-  const scheduled = await controlRoom(c.env, roomId, 'schedule');
-  if (!scheduled.ok) {
-    throw new Error('could not schedule room cleanup');
-  }
+  const room = await getRoom(c.env, roomId);
+  await room.scheduleCleanup();
   return c.json(await roomResponse(c.env.DB, roomId));
 });
 
@@ -108,7 +109,9 @@ matchmaking.post('/rooms/:roomId/leave', async (c) => {
   if (playerId === null) {
     return c.json({ error: 'invalid player credentials' }, 401);
   }
-  return controlRoom(c.env, roomId, 'leave', JSON.stringify({ playerId }));
+  const room = await getRoom(c.env, roomId);
+  await room.leave(playerId);
+  return c.json({ status: 'ok' });
 });
 
 export default matchmaking;

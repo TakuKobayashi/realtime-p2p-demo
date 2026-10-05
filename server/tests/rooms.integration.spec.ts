@@ -136,7 +136,8 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     const browser = await discover(room.id);
     await delay(100);
     assert.strictEqual(browser.messages.length, 0); // HTTP snapshot rooms are never resent.
-    browser.ws.send(JSON.stringify({ type: "ping" }));
+    // Valid JSON above the removed 1024-character lobby limit still receives a response.
+    browser.ws.send(JSON.stringify({ type: "ping", padding: "x".repeat(1024 + 1) }));
     await browser.wait("pong");
     const sa = await connect(room.id, a);
     assert.deepEqual(sa.roster.peers, []); // No wait for second participant.
@@ -153,9 +154,12 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     await sb.wait("peer-joined", (m) => m.from === c.id);
     await api(`/rooms/${room.id}/join`, credentials(d), 409);
     assert.strictEqual((await api("/rooms"))[0].memberCount, 3);
-    sa.ws.send(JSON.stringify({ type: "offer", from: c.id, to: b.id, sdp: "targeted-test-offer" }));
+    // Regression: relay a payload above the removed 128 * 1024-character limit.
+    const largeOffer = "targeted-test-offer".padEnd(128 * 1024 + 1, "x");
+    sa.ws.send(JSON.stringify({ type: "offer", from: c.id, to: b.id, sdp: largeOffer }));
     const offer = await sb.wait("offer");
     assert.strictEqual(offer.from, a.id); // Spoofed source is overwritten.
+    assert.strictEqual(offer.sdp, largeOffer); // Relay preserves the entire payload.
     await delay(150);
     assert.ok(!sc.messages.some((m) => m.type === "offer")); // No cross-pair SDP broadcast.
     sb.ws.send(JSON.stringify({ type: "answer", to: a.id, sdp: "answer" }));

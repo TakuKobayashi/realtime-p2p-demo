@@ -23,13 +23,7 @@ export async function listRooms(d1: D1Database, afterId = 0) {
 
 export async function publishRooms(env: Env) {
   const lobby = await getServerByName<Env, Lobby>(env.Lobby, 'rooms');
-  const response = await lobby.fetch('https://internal/publish', {
-    method: 'POST',
-    headers: { 'x-partykit-room': 'rooms' },
-  });
-  if (!response.ok) {
-    throw new Error('room discovery publication failed');
-  }
+  await lobby.publishRooms();
 }
 
 export function numericId(value: unknown): number | null {
@@ -77,6 +71,7 @@ export async function removeMember(d1: D1Database, roomId: number, playerId: num
   ]);
   return result[0].meta.changes > 0;
 }
+
 export async function roomResponse(d1: D1Database, roomId: number) {
   const db = createDb(d1);
   const room = await db
@@ -89,12 +84,7 @@ export async function roomResponse(d1: D1Database, roomId: number) {
   if (!room) return null;
   return { ...room, maxPlayers: room.maxPlayers ?? 0 };
 }
-export async function controlRoom(env: Env, roomId: number, path: string, body?: string) {
-  // partyserver persists its name fallback for hibernation on older workerd runtimes.
-  const room = await getServerByName<Env, Room>(env.Room, String(roomId));
-  return room.fetch(`https://internal/${path}`, {
-    method: 'POST',
-    headers: { 'x-partykit-room': String(roomId) },
-    body,
-  });
+
+export function getRoom(env: Env, roomId: number) {
+  return getServerByName<Env, Room>(env.Room, String(roomId));
 }
