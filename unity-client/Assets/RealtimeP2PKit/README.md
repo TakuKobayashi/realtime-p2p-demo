@@ -1,6 +1,6 @@
 # RealtimeP2PKit
 
-The public namespace and runtime assembly are `net.taptappun.RealtimeP2PKit`. Use `using net.taptappun.RealtimeP2PKit;` in consumers. The Example and Editor assemblies use the same prefix.
+The public namespace and runtime assembly are `net.taptappun.RealtimeP2PKit`. Use `using net.taptappun.RealtimeP2PKit;` in consumers. This library has Runtime and Editor assemblies. The Demo and its test assembly are consumers and are not intended for UPM distribution.
 
 This folder contains the reusable runtime and Editor window. `Assets/Example` is a separate consumer. To use the library in another Unity 6 project, copy this folder and `Assets/Packages` (MessagePack and NativeWebSocket DLLs with `.meta` files), then add Unity.WebRTC 3.0.0, Newtonsoft.Json 3.2.2, Burst 1.8.27, and Collections 2.6.2 to the target project's `Packages/manifest.json`.
 

@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Localization;
-using net.taptappun.RealtimeP2PKit.Localization;
+using net.taptappun.RealtimeP2PKit.Example.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example
 {

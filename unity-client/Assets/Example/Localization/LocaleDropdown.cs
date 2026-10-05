@@ -6,7 +6,7 @@ using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
 using UnityEngine.UI;
 
-namespace net.taptappun.RealtimeP2PKit.Localization
+namespace net.taptappun.RealtimeP2PKit.Example.Localization
 {
     [RequireComponent(typeof(Dropdown))]
     public sealed class LocaleDropdown : MonoBehaviour

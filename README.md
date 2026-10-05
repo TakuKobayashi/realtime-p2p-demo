@@ -11,7 +11,8 @@
 
 DemoのUGUIはUnity Localizationで日本語・英語に対応しています。各画面の言語プルダウンで切り替えられ、選択は保存されます。初回はシステム言語を使い、対応しない言語の場合は英語になります。
 翻訳テーブルと設定は同梱済みで、生成メニューの実行は不要です。翻訳は `Window > Asset Management > Localization Tables` の `Example UI` で編集します。
-汎用UGUI連携は `Assets/RealtimeP2PKit.Localization/` に分離し、通信ライブラリ本体にはLocalizationの依存を追加していません。日本語表示用のNoto Sans JPとライセンスは `Assets/Example/Localization/Fonts/` にあります。
+多言語UIの処理はDemoの `Assets/Example/Localization/` に置き、通信ライブラリ本体にはLocalizationの依存を追加していません。日本語表示用のNoto Sans JPとライセンスは `Assets/Example/Localization/Fonts/` にあります。
+Demoの接続設定Windowは `Assets/Editor/Example/` にあります。Demo・テストのasmdefはテストからDemoを参照するためのもので、UPM公開対象ではありません。UPM公開対象は `Assets/RealtimeP2PKit/` のRuntime・Editorです。
 
 
 複数参加者のリアルタイム通信の実証実験。座標(xyz)を各参加者へのWebRTC DataChannel経由でP2P直接送信し、

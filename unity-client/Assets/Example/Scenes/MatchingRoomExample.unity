@@ -2058,7 +2058,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8dd32442c41f64121a6dcd724f985b02, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Localization::net.taptappun.RealtimeP2PKit.Localization.LocaleDropdown
+  m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.Localization.LocaleDropdown
 --- !u!114 &1542609390
 MonoBehaviour:
   m_ObjectHideFlags: 0

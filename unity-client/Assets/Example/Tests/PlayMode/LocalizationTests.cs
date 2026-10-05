@@ -1,7 +1,7 @@
 #if UNITY_EDITOR
 using System.Collections;
 using System.Linq;
-using net.taptappun.RealtimeP2PKit.Localization;
+using net.taptappun.RealtimeP2PKit.Example.Localization;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;

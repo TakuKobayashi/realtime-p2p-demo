@@ -5,7 +5,7 @@
         "net.taptappun.RealtimeP2PKit",
         "UnityEngine.UI",
         "Unity.Localization",
-        "net.taptappun.RealtimeP2PKit.Localization"
+        "Unity.ResourceManager"
     ],
     "autoReferenced": true
 }

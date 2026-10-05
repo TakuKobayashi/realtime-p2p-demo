@@ -2,7 +2,6 @@
     "name": "net.taptappun.RealtimeP2PKit.Example.Localization.Tests",
     "references": [
         "net.taptappun.RealtimeP2PKit.Example",
-        "net.taptappun.RealtimeP2PKit.Localization",
         "Unity.Localization",
         "Unity.ResourceManager",
         "UnityEngine.UI"

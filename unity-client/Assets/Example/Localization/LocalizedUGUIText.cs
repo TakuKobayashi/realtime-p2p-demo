@@ -5,7 +5,7 @@ using UnityEngine.Localization.Components;
 using UnityEngine.Localization.Tables;
 using UnityEngine.UI;
 
-namespace net.taptappun.RealtimeP2PKit.Localization
+namespace net.taptappun.RealtimeP2PKit.Example.Localization
 {
     public static class LocalizedUGUIText
     {
