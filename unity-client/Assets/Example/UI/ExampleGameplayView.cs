@@ -1,6 +1,8 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Localization;
+using net.taptappun.RealtimeP2PKit.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example
 {
@@ -14,17 +16,13 @@ namespace net.taptappun.RealtimeP2PKit.Example
         private void Awake() => _leaveButton.onClick.AddListener(Leave);
         public void SetSummary(long roomId, int count, int maximum, string playerId, int connectedPeers)
         {
-            SetText(_roomText, $"Room {roomId}    {count} / {(maximum == 0 ? "無制限" : maximum.ToString())}");
-            SetText(_playerText, $"Player {playerId}    P2P接続数: {connectedPeers}");
+            LocalizedUGUIText.SetEntry(_roomText, maximum == 0 ? "gameplay.room_unlimited" : "gameplay.room", roomId, count, maximum);
+            LocalizedUGUIText.SetEntry(_playerText, "gameplay.player", playerId, connectedPeers);
         }
-        public void SetStatus(string status, bool exiting)
+        public void SetStatus(LocalizedString status, bool exiting)
         {
-            SetText(_statusText, status);
+            LocalizedUGUIText.SetMessage(_statusText, status);
             _leaveButton.interactable = !exiting;
-        }
-        private static void SetText(Text text, string value)
-        {
-            if (text.text != value) text.text = value;
         }
         private void Leave() => LeaveRequested?.Invoke();
         private void OnDestroy() => _leaveButton.onClick.RemoveListener(Leave);

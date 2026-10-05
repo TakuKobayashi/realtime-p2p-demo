@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example
 {
@@ -15,7 +16,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
         [SerializeField] private ExampleMatchingRoomView _view;
         private ExampleMatchmakingFlow _flow;
         private List<MachingRoom> _rooms = new();
-        private string _status;
+        private LocalizedString _status;
         private bool _busy;
         private bool _refreshing;
         private bool _destroyed;
@@ -57,11 +58,11 @@ namespace net.taptappun.RealtimeP2PKit.Example
                         _lastRoomId = Math.Max(_lastRoomId, room.id);
                     _hasSnapshot = true;
                     _view.ShowRooms(_rooms);
-                    _status = "新しいRoomの通知に接続中...";
+                    _status = ExampleLocalization.Message("status.lobby_connecting");
                     ConnectLobby();
                 }
             }
-            catch (Exception ex) { if (!_destroyed) _status = ex.Message; }
+            catch (Exception ex) { Debug.LogException(ex); if (!_destroyed) _status = ExampleLocalization.Message("status.request_failed"); }
             finally { _refreshing = false; UpdateView(); }
         }
         private void ConnectLobby()
@@ -83,7 +84,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
             listener.Synchronized += () =>
             {
                 if (_destroyed || _lobby != listener) return;
-                if (!_busy) _status = "新しいRoomを自動追加します。人数・削除の反映は「一覧を更新」で行えます。";
+                if (!_busy) _status = ExampleLocalization.Message("status.lobby_ready");
                 UpdateView();
             };
             listener.Disconnected += reason =>
@@ -102,9 +103,9 @@ namespace net.taptappun.RealtimeP2PKit.Example
             if (_busy) return;
             var capacity = _view.Capacity;
             if (room == null && (!int.TryParse(capacity, out var maximum) || maximum < 0))
-            { _status = "定員は0以上の整数で指定してください。0は無制限です。"; UpdateView(); return; }
+            { _status = ExampleLocalization.Message("status.invalid_capacity"); UpdateView(); return; }
             _busy = true;
-            _status = "接続中...";
+            _status = ExampleLocalization.Message("status.connecting");
             UpdateView();
             try
             {
@@ -115,7 +116,8 @@ namespace net.taptappun.RealtimeP2PKit.Example
             }
             catch (Exception ex)
             {
-                _status = ex.Message;
+                Debug.LogException(ex);
+                _status = ExampleLocalization.Message("status.request_failed");
                 if (ExampleRoomSession.Room != null) await ExampleMatchmakingFlow.LeaveCurrentRoomAsync();
             }
             finally { _busy = false; UpdateView(); }

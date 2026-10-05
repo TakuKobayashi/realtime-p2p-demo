@@ -42,12 +42,6 @@ namespace net.taptappun.RealtimeP2PKit.Example.Editor
                 PlayerPrefs.Save();
             }
 
-            EditorGUILayout.HelpBox(
-                "Local / Remote の選択はパッケージの Connection Settings と共通です。" +
-                "Player ビルドの環境と STUN は Connection Settings で設定してください。" +
-                "ここではルーム管理用 HTTP と Example の Room シグナリング WebSocket の接続先を設定します。",
-                MessageType.Info);
-
             _serializedSettings.Update();
             var endpoints = _serializedSettings.FindProperty(selected == P2PEnvironment.Local ? "Local" : "Remote");
             EditorGUILayout.LabelField(selected.ToString(), EditorStyles.boldLabel);
@@ -55,14 +49,9 @@ namespace net.taptappun.RealtimeP2PKit.Example.Editor
             EditorGUILayout.PropertyField(endpoints.FindPropertyRelative("WebSocketBaseUrl"), new GUIContent("WebSocket Base URL"));
             _serializedSettings.ApplyModifiedProperties();
 
-            EditorGUILayout.HelpBox(
-                "ベース URL を指定してください。HTTP は /api/matchmaking/...、" +
-                "WebSocket は /parties/room/{roomId} を自動で追加します。",
-                MessageType.None);
-
             var valid = IsValid(_settings.Local) && IsValid(_settings.Remote);
             if (!valid)
-                EditorGUILayout.HelpBox("HTTP は http:// または https://、WebSocket は ws:// または wss:// の絶対 URL を指定してください。", MessageType.Error);
+                EditorGUILayout.HelpBox("接続先のURL形式が正しくありません。", MessageType.Error);
             using (new EditorGUI.DisabledScope(!valid))
             {
                 if (GUILayout.Button("Save Local / Remote Settings"))

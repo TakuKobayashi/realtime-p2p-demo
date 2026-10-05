@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example
 {
@@ -19,7 +20,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
         private P2PManager _manager;
         private GameObject _localPlayer;
         private bool _exiting;
-        private string _status = "Roomに接続中...";
+        private LocalizedString _status;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void EnableBackgroundExecution()
@@ -30,6 +31,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
 
         private async void Start()
         {
+            _status = ExampleLocalization.Message("status.room_connecting");
             _view.LeaveRequested += OnLeaveRequested;
             _view.SetStatus(_status, false);
             if (ExampleRoomSession.Room == null || ExampleRoomSession.Player == null)
@@ -52,9 +54,9 @@ namespace net.taptappun.RealtimeP2PKit.Example
                 await _manager.ConnectToRoomAsync(ExampleRoomSession.Player.id,
                     ExampleRoomSession.Room.id.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     ExampleRoomSession.Player.token, ExampleRoomSession.WebSocketBaseUrl);
-                if (!_exiting) _status = "WASD / 矢印キーで移動できます。参加者を待っています。";
+                if (!_exiting) _status = ExampleLocalization.Message("status.controls");
             }
-            catch (Exception ex) { if (!_exiting) await ExitAsync($"接続に失敗しました: {ex.Message}"); }
+            catch (Exception ex) { Debug.LogException(ex); if (!_exiting) await ExitAsync(ExampleLocalization.Message("status.connection_failed")); }
         }
         private void OnPeerConnected(string id)
         {
@@ -78,19 +80,23 @@ namespace net.taptappun.RealtimeP2PKit.Example
         private void OnPeerConnectionFailed(string id)
         {
             RemoveRemote(id);
-            _status = $"Player {id} とのP2P接続に失敗しました。他の参加者との通信は継続しています。";
+            _status = ExampleLocalization.Message("status.peer_failed", id);
         }
-        private void OnConnectionClosed(string reason) => _ = ExitAsync($"ネットワーク接続が切れました: {reason}");
-        private async Task ExitAsync(string notice)
+        private void OnConnectionClosed(string reason)
+        {
+            Debug.LogWarning(reason);
+            _ = ExitAsync(ExampleLocalization.Message("status.disconnected"));
+        }
+        private async Task ExitAsync(LocalizedString notice)
         {
             if (_exiting) return;
             _exiting = true;
-            _status = "退出中...";
+            _status = ExampleLocalization.Message("status.leaving");
             ExampleRoomSession.Notice = notice;
             await ExampleMatchmakingFlow.LeaveCurrentRoomAsync();
             if (this != null) SceneManager.LoadScene(ExampleRoomSession.MatchingScene);
         }
-        private void OnLeaveRequested() => _ = ExitAsync("Roomから退出しました。");
+        private void OnLeaveRequested() => _ = ExitAsync(ExampleLocalization.Message("status.left"));
         private void LateUpdate()
         {
             var room = ExampleRoomSession.Room;

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using NativeWebSocket;
 using UnityEngine;
+using UnityEngine.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
 {
@@ -13,7 +14,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
     {
         public event Action<List<MachingRoom>> RoomsReceived;
         public event Action Synchronized;
-        public event Action<string> Disconnected;
+        public event Action<LocalizedString> Disconnected;
         private readonly string _url;
         private WebSocket _ws;
         private bool _disposed;
@@ -39,8 +40,8 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
                 if (_disposed || _failed) return;
                 _ = SendAsync(JsonConvert.SerializeObject(new { type = "subscribe", lastRoomId }));
             };
-            _ws.OnError += error => Fail("ルーム通知に接続できません。再接続します。");
-            _ws.OnClose += code => Fail("ルーム通知が切断されました。再接続します。");
+            _ws.OnError += error => Fail(ExampleLocalization.Message("lobby.connection_failed"));
+            _ws.OnClose += code => Fail(ExampleLocalization.Message("lobby.disconnected"));
             _ws.OnMessage += bytes =>
             {
                 if (_disposed || _failed) return;
@@ -53,14 +54,14 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
                     if (message?.type == "rooms-created" && message.rooms != null) RoomsReceived?.Invoke(message.rooms);
                     else if (message?.type == "subscribed") Synchronized?.Invoke();
                 }
-                catch (Exception ex) { Fail("ルーム通知の読み込みに失敗しました: " + ex.Message); }
+                catch (Exception ex) { Debug.LogException(ex); Fail(ExampleLocalization.Message("lobby.invalid_message")); }
             };
             _ = RunAsync();
         }
         private async Task RunAsync()
         {
             try { await _ws.Connect(); }
-            catch (Exception) { Fail("ルーム通知に接続できません。再接続します。"); }
+            catch (Exception) { Fail(ExampleLocalization.Message("lobby.connection_failed")); }
         }
         private async Task SendAsync(string json)
         {
@@ -69,7 +70,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
                 if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketSend("Lobby", json));
                 await _ws.SendText(json);
             }
-            catch (Exception) { Fail("ルーム通知の送信に失敗しました。再接続します。"); }
+            catch (Exception) { Fail(ExampleLocalization.Message("lobby.send_failed")); }
         }
         public void Tick()
         {
@@ -78,14 +79,14 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
             _ws?.DispatchMessageQueue();
 #endif
             var now = Time.realtimeSinceStartup;
-            if (now - _lastReceived > 40f) { Fail("ルーム通知が応答しません。再接続します。"); return; }
+            if (now - _lastReceived > 40f) { Fail(ExampleLocalization.Message("lobby.timeout")); return; }
             if (_ws?.State == WebSocketState.Open && now >= _nextPing)
             {
                 _nextPing = now + 15f;
                 _ = SendAsync("{\"type\":\"ping\"}");
             }
         }
-        private void Fail(string reason)
+        private void Fail(LocalizedString reason)
         {
             if (_disposed || _failed) return;
             _failed = true;

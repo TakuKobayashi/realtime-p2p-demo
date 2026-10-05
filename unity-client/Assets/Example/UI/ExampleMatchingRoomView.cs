@@ -4,6 +4,8 @@ using System.Linq;
 using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Localization;
+using net.taptappun.RealtimeP2PKit.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example
 {
@@ -32,10 +34,10 @@ namespace net.taptappun.RealtimeP2PKit.Example
             _createButton.onClick.AddListener(Create);
             _refreshButton.onClick.AddListener(Refresh);
         }
-        public void SetState(string status, bool busy, bool refreshing)
+        public void SetState(LocalizedString status, bool busy, bool refreshing)
         {
             _busy = busy;
-            _statusText.text = status ?? "";
+            LocalizedUGUIText.SetMessage(_statusText, status);
             _capacityInput.interactable = !busy;
             _createButton.interactable = !busy;
             _refreshButton.interactable = !busy && !refreshing;

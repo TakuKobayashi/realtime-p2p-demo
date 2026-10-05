@@ -3,7 +3,9 @@
     "rootNamespace": "net.taptappun.RealtimeP2PKit.Example",
     "references": [
         "net.taptappun.RealtimeP2PKit",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.Localization",
+        "net.taptappun.RealtimeP2PKit.Localization"
     ],
     "autoReferenced": true
 }

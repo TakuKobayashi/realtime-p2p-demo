@@ -1,0 +1,10 @@
+{
+    "name": "net.taptappun.RealtimeP2PKit.Localization",
+    "rootNamespace": "net.taptappun.RealtimeP2PKit.Localization",
+    "references": [
+        "Unity.Localization",
+        "Unity.ResourceManager",
+        "UnityEngine.UI"
+    ],
+    "autoReferenced": true
+}

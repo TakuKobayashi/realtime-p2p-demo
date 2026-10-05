@@ -6,6 +6,8 @@
         "net.taptappun.RealtimeP2PKit.Editor",
         "net.taptappun.RealtimeP2PKit"
     ],
-    "includePlatforms": ["Editor"],
+    "includePlatforms": [
+        "Editor"
+    ],
     "autoReferenced": true
 }

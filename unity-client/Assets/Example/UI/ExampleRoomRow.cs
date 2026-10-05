@@ -2,6 +2,7 @@ using System;
 using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
 using UnityEngine;
 using UnityEngine.UI;
+using net.taptappun.RealtimeP2PKit.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example
 {
@@ -19,15 +20,15 @@ namespace net.taptappun.RealtimeP2PKit.Example
         {
             _room = room;
             _join = join;
-            _roomText.text = $"Room {room.id}";
-            _capacityText.text = $"参加者 {room.memberCount} / {(room.maxPlayers == 0 ? "無制限" : room.maxPlayers.ToString())}";
+            LocalizedUGUIText.SetEntry(_roomText, "row.room", room.id);
+            LocalizedUGUIText.SetEntry(_capacityText, room.maxPlayers == 0 ? "row.capacity_unlimited" : "row.capacity", room.memberCount, room.maxPlayers);
             SetBusy(busy);
         }
         public void SetBusy(bool busy)
         {
             var full = _room.maxPlayers > 0 && _room.memberCount >= _room.maxPlayers;
             _joinButton.interactable = !busy && !full;
-            _joinLabel.text = full ? "満員" : "Join";
+            LocalizedUGUIText.SetEntry(_joinLabel, full ? "row.full" : "row.join");
         }
         private void Join() => _join?.Invoke(_room);
         private void OnDestroy() => _joinButton.onClick.RemoveListener(Join);

@@ -84,16 +84,12 @@ namespace net.taptappun.RealtimeP2PKit.Editor
                 }
             }
 
-            EditorGUILayout.HelpBox(
-                "表示中の Local / Remote が Editor の接続先です。接続先と STUN の設定は Player ビルドにも含まれます。" +
-                "ビルド前に Player build environment を確認してください。",
-                MessageType.Info);
             EditorGUILayout.Space();
 
             if (selected == P2PEnvironment.Local)
-                DrawEnvironmentSettings("Local (ローカルサーバー)", ref _localSignalingWebSocketUrl, _localStunServerUrls);
+                DrawEnvironmentSettings("Local", ref _localSignalingWebSocketUrl, _localStunServerUrls);
             else
-                DrawEnvironmentSettings("Remote (デプロイ済みサーバー)", ref _remoteSignalingWebSocketUrl, _remoteStunServerUrls);
+                DrawEnvironmentSettings("Remote", ref _remoteSignalingWebSocketUrl, _remoteStunServerUrls);
 
             EditorGUILayout.Space();
             if (GUILayout.Button("Save Local / Remote Settings"))
@@ -103,11 +99,6 @@ namespace net.taptappun.RealtimeP2PKit.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Network Logging", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox(
-                "WebSocket(シグナリング)/WebRTC DataChannelの送受信内容を" +
-                "そのままログ出力します。UnityEditor上でのみON/OFFを切り替えられ、この設定自体もビルドには" +
-                "含まれません(ビルドしたアプリでは常にOFFです)。",
-                MessageType.None);
             var newLogValue = EditorGUILayout.Toggle("Enable Network Logging", _networkLoggingEnabled);
             if (newLogValue != _networkLoggingEnabled)
             {
@@ -128,7 +119,7 @@ namespace net.taptappun.RealtimeP2PKit.Editor
             signalingWebSocketUrl = EditorGUILayout.TextField("Signaling WebSocket URL", signalingWebSocketUrl);
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("STUN Server URLs (上から順に使用)", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("STUN Server URLs", EditorStyles.boldLabel);
             for (var i = 0; i < stunServerUrls.Count; i++)
             {
                 EditorGUILayout.BeginHorizontal();

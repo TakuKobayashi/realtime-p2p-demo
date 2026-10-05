@@ -1,0 +1,164 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: Example UI_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 031597bc35e4c4db7b93d2301db8d972, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 275767296
+    m_Localized: 
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350208
+    m_Localized: Room matching
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350209
+    m_Localized: Capacity (including you; 0 = unlimited)
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350210
+    m_Localized: Refresh list
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350211
+    m_Localized: Create room
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350212
+    m_Localized: No rooms yet. Create a room to get started.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350213
+    m_Localized: Room
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350214
+    m_Localized: Participants
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350215
+    m_Localized: Room {0}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350216
+    m_Localized: Participants {0} / {1}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350217
+    m_Localized: Participants {0} / Unlimited
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350218
+    m_Localized: Join
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350219
+    m_Localized: Full
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350220
+    m_Localized: Room {0}    {1} / {2}
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350221
+    m_Localized: Room {0}    {1} / Unlimited
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350222
+    m_Localized: 'Player {0}    P2P connections: {1}'
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350223
+    m_Localized: Player
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350224
+    m_Localized: Leave room
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350225
+    m_Localized: Connecting to room updates...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350226
+    m_Localized: New rooms appear automatically. Refresh to update player counts
+      and removed rooms.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350227
+    m_Localized: Enter a non-negative whole number. 0 means unlimited.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350228
+    m_Localized: Connecting...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350229
+    m_Localized: Connecting to the room...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350230
+    m_Localized: The request failed. Please try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350231
+    m_Localized: Move with WASD or arrow keys. Waiting for players.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350232
+    m_Localized: Could not connect to the room. Please try again.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350233
+    m_Localized: P2P connection to player {0} failed. Other connections remain active.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350234
+    m_Localized: The network connection was lost.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350235
+    m_Localized: Leaving...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350236
+    m_Localized: You left the room.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350237
+    m_Localized: Could not connect to room updates. Reconnecting...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350238
+    m_Localized: Room updates disconnected. Reconnecting...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350239
+    m_Localized: Could not read room updates. Reconnecting...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350240
+    m_Localized: Could not send to room updates. Reconnecting...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 288350241
+    m_Localized: Room updates are not responding. Reconnecting...
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []

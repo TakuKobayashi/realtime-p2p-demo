@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Localization;
 
 namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
 {
@@ -11,7 +12,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
         public static MachingRoom Room;
         public static string HttpBaseUrl;
         public static string WebSocketBaseUrl;
-        public static string Notice;
+        public static LocalizedString Notice;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void Reset()

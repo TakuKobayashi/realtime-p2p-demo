@@ -11,5 +11,7 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Example/Scenes/P2PExample.unity
     guid: fb64a8c57be1967449ad06d577f5bf88
-  m_configObjects: {}
+  m_configObjects:
+    com.unity.addressableassets: {fileID: 11400000, guid: a0bd871002f464a30b5500e7de5a5edf, type: 2}
+    com.unity.localization.settings: {fileID: 11400000, guid: 3f1f120fa6af342e1bbc3172ebc1aadf, type: 2}
   m_UseUCBPForAssetBundles: 0
