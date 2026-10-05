@@ -126,6 +126,10 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     const room = await api("/rooms", { ...credentials(a), maxPlayers: 3 }, 201);
     assert.strictEqual(room.id, 1);
     assert.strictEqual(room.memberCount, 1); // Creator is listed before anyone else arrives.
+    // A conflicting creator reservation rolls the room insert back as well.
+    await api("/rooms", { ...credentials(a), maxPlayers: 3 }, 409);
+    assert.deepEqual((await api("/rooms")).map((r) => r.id), [room.id]);
+    await api(`/rooms/999999/join`, credentials(d), 409);
     assert.deepEqual((await coldBrowser.wait("rooms-created")).rooms.map((r) => r.id), [room.id]);
     coldBrowser.ws.close();
     assert.strictEqual((await api("/rooms"))[0].id, room.id);
@@ -137,6 +141,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     const sa = await connect(room.id, a);
     assert.deepEqual(sa.roster.peers, []); // No wait for second participant.
     await api(`/rooms/${room.id}/join`, credentials(b));
+    await api(`/rooms/${room.id}/join`, credentials(b)); // Joining the same room is idempotent.
     const sb = await connect(room.id, b);
     assert.deepEqual(sb.roster.peers, [a.id]);
     assert.strictEqual(sb.roster.isInitiator, true); // Role is explicit, never derived from ID.

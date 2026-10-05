@@ -1,3 +1,6 @@
+import { and, count, eq, gt, notExists } from 'drizzle-orm';
+import { createDb, type Db } from './db/client';
+import { gameRooms, players, roomMembers } from './db/schema';
 import type { Env } from './env';
 import { getServerByName } from 'partyserver';
 import type { Room } from './party/room';
@@ -6,21 +9,16 @@ import type { Lobby } from './party/lobby';
 export const LEASE_MS = 45_000;
 export const ALARM_MS = 15_000;
 
-export async function listRooms(db: D1Database, afterId = 0) {
+export async function listRooms(d1: D1Database, afterId = 0) {
+  const db = createDb(d1);
   const rooms = await db
-    .prepare(
-      `SELECT r.id, r.max_players, r.created_at, COUNT(m.id) AS member_count
-    FROM game_rooms r JOIN room_members m ON m.room_id = r.id AND m.expires_at > ?
-    WHERE r.id > ? GROUP BY r.id ORDER BY r.id`,
-    )
-    .bind(Date.now(), afterId)
-    .all<{ id: number; max_players: number | null; created_at: number; member_count: number }>();
-  return rooms.results.map((room) => ({
-    id: room.id,
-    maxPlayers: room.max_players ?? 0,
-    memberCount: room.member_count,
-    createdAt: room.created_at,
-  }));
+    .select({ id: gameRooms.id, maxPlayers: gameRooms.maxPlayers, createdAt: gameRooms.createdAt, memberCount: count(roomMembers.id) })
+    .from(gameRooms)
+    .innerJoin(roomMembers, and(eq(roomMembers.roomId, gameRooms.id), gt(roomMembers.expiresAt, Date.now())))
+    .where(gt(gameRooms.id, afterId))
+    .groupBy(gameRooms.id)
+    .orderBy(gameRooms.id);
+  return rooms.map((room) => ({ ...room, maxPlayers: room.maxPlayers ?? 0 }));
 }
 
 export async function publishRooms(env: Env) {
@@ -37,33 +35,56 @@ export function numericId(value: unknown): number | null {
   const id = Number(value);
   return Number.isSafeInteger(id) ? id : null;
 }
-export async function authenticate(db: D1Database, playerId: unknown, token: unknown): Promise<number | null> {
+export async function authenticate(d1: D1Database, playerId: unknown, token: unknown): Promise<number | null> {
   const id = numericId(playerId);
   if (id === null || typeof token !== 'string') return null;
-  const player = await db.prepare('SELECT id FROM players WHERE id = ? AND token = ?').bind(id, token).first<{ id: number }>();
+  const player = await createDb(d1)
+    .select({ id: players.id })
+    .from(players)
+    .where(and(eq(players.id, id), eq(players.token, token)))
+    .get();
   return player?.id ?? null;
 }
-export async function removeMember(db: D1Database, roomId: number, playerId: number, connectionId?: string) {
+
+export function deleteEmptyRoom(db: Db, roomId: number) {
+  return db
+    .delete(gameRooms)
+    .where(
+      and(
+        eq(gameRooms.id, roomId),
+        notExists(db.select({ id: roomMembers.id }).from(roomMembers).where(eq(roomMembers.roomId, gameRooms.id))),
+      ),
+    );
+}
+
+export async function removeMember(d1: D1Database, roomId: number, playerId: number, connectionId?: string) {
+  const db = createDb(d1);
   // A stale socket must never delete a membership adopted by a newer socket.
-  const condition = connectionId === undefined ? '' : ' AND connection_id = ?';
-  const bindings = connectionId === undefined ? [roomId, playerId] : [roomId, playerId, connectionId];
   const result = await db.batch([
-    db.prepare(`DELETE FROM room_members WHERE room_id = ? AND player_id = ?${condition}`).bind(...bindings),
-    db.prepare('DELETE FROM game_rooms WHERE id = ? AND NOT EXISTS (SELECT 1 FROM room_members WHERE room_id = ?)').bind(roomId, roomId),
+    db
+      .delete(roomMembers)
+      .where(
+        and(
+          eq(roomMembers.roomId, roomId),
+          eq(roomMembers.playerId, playerId),
+          connectionId === undefined ? undefined : eq(roomMembers.connectionId, connectionId),
+        ),
+      ),
+    deleteEmptyRoom(db, roomId),
   ]);
   return result[0].meta.changes > 0;
 }
-export async function roomResponse(db: D1Database, roomId: number) {
+export async function roomResponse(d1: D1Database, roomId: number) {
+  const db = createDb(d1);
   const room = await db
-    .prepare(
-      `SELECT r.id, r.max_players, r.created_at,
-    (SELECT COUNT(*) FROM room_members m WHERE m.room_id = r.id AND m.expires_at > ?) AS member_count
-    FROM game_rooms r WHERE r.id = ?`,
-    )
-    .bind(Date.now(), roomId)
-    .first<{ id: number; max_players: number | null; created_at: number; member_count: number }>();
+    .select({ id: gameRooms.id, maxPlayers: gameRooms.maxPlayers, createdAt: gameRooms.createdAt, memberCount: count(roomMembers.id) })
+    .from(gameRooms)
+    .leftJoin(roomMembers, and(eq(roomMembers.roomId, gameRooms.id), gt(roomMembers.expiresAt, Date.now())))
+    .where(eq(gameRooms.id, roomId))
+    .groupBy(gameRooms.id)
+    .get();
   if (!room) return null;
-  return { id: room.id, maxPlayers: room.max_players ?? 0, memberCount: room.member_count, createdAt: room.created_at };
+  return { ...room, maxPlayers: room.maxPlayers ?? 0 };
 }
 export async function controlRoom(env: Env, roomId: number, path: string, body?: string) {
   // partyserver persists its name fallback for hibernation on older workerd runtimes.

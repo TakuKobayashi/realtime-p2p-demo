@@ -23,8 +23,9 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const path = new URL(request.url).pathname;
     // Internal room control endpoints are reachable only through the binding.
-    if (path.startsWith('/parties/') && request.headers.get('Upgrade')?.toLowerCase() !== 'websocket')
+    if (path.startsWith('/parties/') && request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
       return new Response('websocket upgrade required', { status: 426 });
+    }
     // WebSocket requests to /parties/lobby/rooms and
     // /parties/room/{id} are routed straight to the matching Durable Object.
     // Everything else falls through to the Hono REST API below.
@@ -34,10 +35,14 @@ export default {
       async onBeforeConnect(_request, lobby) {
         // Initialize discovery when a browser connects, independently of room creation.
         // This persists the Lobby identity before its first WebSocket is accepted.
-        if (lobby.className === 'Lobby') await getServerByName<Env, Lobby>(env.Lobby, lobby.name);
+        if (lobby.className === 'Lobby') {
+          await getServerByName<Env, Lobby>(env.Lobby, lobby.name);
+        }
       },
     });
-    if (partyResponse) return partyResponse;
+    if (partyResponse) {
+      return partyResponse;
+    }
 
     return app.fetch(request, env, ctx);
   },
