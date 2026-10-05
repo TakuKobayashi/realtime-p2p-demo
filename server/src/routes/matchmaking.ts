@@ -21,23 +21,17 @@ matchmaking.post('/rooms', async (c) => {
     return c.json({ error: 'maxPlayers must be a non-negative integer (0 = unlimited)' }, 400);
   const db = createDb(c.env.DB);
   const now = Date.now();
-  let roomId: number;
-  try {
-    // D1 batch is transactional: creator reservation and room both exist or neither does.
-    const results = await db.batch([
-      db.delete(roomMembers).where(and(eq(roomMembers.playerId, playerId), lte(roomMembers.expiresAt, now))),
-      db
-        .insert(gameRooms)
-        .values({ maxPlayers: maxPlayers === 0 ? null : maxPlayers, createdAt: now })
-        .returning({ id: gameRooms.id }),
-      // SQLite's generated ID is consumed inside the same batch, before another insert.
-      db.insert(roomMembers).values({ roomId: sql<number>`last_insert_rowid()`, playerId, expiresAt: now + LEASE_MS }),
-    ]);
-    roomId = results[1][0].id;
-  } catch (error) {
-    if (String(error).includes('UNIQUE constraint failed')) return c.json({ error: 'leave the current room first' }, 409);
-    throw error;
-  }
+  // D1 batch is transactional: creator reservation and room both exist or neither does.
+  const results = await db.batch([
+    db.delete(roomMembers).where(and(eq(roomMembers.playerId, playerId), lte(roomMembers.expiresAt, now))),
+    db
+      .insert(gameRooms)
+      .values({ maxPlayers: maxPlayers === 0 ? null : maxPlayers, createdAt: now })
+      .returning({ id: gameRooms.id }),
+    // SQLite's generated ID is consumed inside the same batch, before another insert.
+    db.insert(roomMembers).values({ roomId: sql<number>`last_insert_rowid()`, playerId, expiresAt: now + LEASE_MS }),
+  ]);
+  const roomId = results[1][0].id;
   const scheduled = await controlRoom(c.env, roomId, 'schedule');
   if (!scheduled.ok) throw new Error('could not schedule room cleanup');
   c.executionCtx.waitUntil(publishRooms(c.env).catch((error) => console.error('room publication failed', error)));
@@ -76,31 +70,26 @@ matchmaking.post('/rooms/:roomId/join', async (c) => {
     .select({ id: roomMembers.id })
     .from(roomMembers)
     .where(and(eq(roomMembers.roomId, gameRooms.id), gt(roomMembers.expiresAt, now)));
-  try {
-    const results = await db.batch([
-      db.delete(roomMembers).where(and(eq(roomMembers.playerId, playerId), lte(roomMembers.expiresAt, now))),
-      // Keep capacity check and admission in one atomic INSERT ... SELECT.
-      db.insert(roomMembers).select(
-        db
-          .select({
-            id: sql<null>`null`.as('id'),
-            roomId: gameRooms.id,
-            playerId: sql<number>`${playerId}`.as('player_id'),
-            connectionId: sql<null>`null`.as('connection_id'),
-            expiresAt: sql<number>`${now + LEASE_MS}`.as('expires_at'),
-          })
-          .from(gameRooms)
-          .where(
-            and(eq(gameRooms.id, roomId), exists(liveMember), or(isNull(gameRooms.maxPlayers), lt(activeMembers, gameRooms.maxPlayers))),
-          ),
-      ),
-    ]);
-    if (results[1].meta.changes !== 1) {
-      return c.json({ error: 'room is full or no longer available' }, 409);
-    }
-  } catch (error) {
-    if (String(error).includes('UNIQUE constraint failed')) return c.json({ error: 'already joined a room' }, 409);
-    throw error;
+  const results = await db.batch([
+    db.delete(roomMembers).where(and(eq(roomMembers.playerId, playerId), lte(roomMembers.expiresAt, now))),
+    // Keep capacity check and admission in one atomic INSERT ... SELECT.
+    db.insert(roomMembers).select(
+      db
+        .select({
+          id: sql<null>`null`.as('id'),
+          roomId: gameRooms.id,
+          playerId: sql<number>`${playerId}`.as('player_id'),
+          connectionId: sql<null>`null`.as('connection_id'),
+          expiresAt: sql<number>`${now + LEASE_MS}`.as('expires_at'),
+        })
+        .from(gameRooms)
+        .where(
+          and(eq(gameRooms.id, roomId), exists(liveMember), or(isNull(gameRooms.maxPlayers), lt(activeMembers, gameRooms.maxPlayers))),
+        ),
+    ),
+  ]);
+  if (results[1].meta.changes !== 1) {
+    return c.json({ error: 'room is full or no longer available' }, 409);
   }
   const scheduled = await controlRoom(c.env, roomId, 'schedule');
   if (!scheduled.ok) {

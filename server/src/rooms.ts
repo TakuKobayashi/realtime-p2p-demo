@@ -27,7 +27,9 @@ export async function publishRooms(env: Env) {
     method: 'POST',
     headers: { 'x-partykit-room': 'rooms' },
   });
-  if (!response.ok) throw new Error('room discovery publication failed');
+  if (!response.ok) {
+    throw new Error('room discovery publication failed');
+  }
 }
 
 export function numericId(value: unknown): number | null {
@@ -35,6 +37,7 @@ export function numericId(value: unknown): number | null {
   const id = Number(value);
   return Number.isSafeInteger(id) ? id : null;
 }
+
 export async function authenticate(d1: D1Database, playerId: unknown, token: unknown): Promise<number | null> {
   const id = numericId(playerId);
   if (id === null || typeof token !== 'string') return null;

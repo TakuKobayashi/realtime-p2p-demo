@@ -5,6 +5,7 @@ import matchmaking from './routes/matchmaking';
 import { Lobby } from './party/lobby';
 import { Room } from './party/room';
 import type { Env } from './env';
+import { handleRequestError } from './errors';
 
 // Durable Object classes must be exported from the worker's main module so
 // wrangler can find them (see wrangler.jsonc durable_objects.bindings).
@@ -14,10 +15,7 @@ const app = new Hono<{ Bindings: Env }>();
 app.use('*', cors());
 app.get('/health', (c) => c.text('ok'));
 app.route('/api/matchmaking', matchmaking);
-app.onError((error, c) => {
-  console.error('request failed', error);
-  return c.json({ error: 'server error' }, 500);
-});
+app.onError(handleRequestError);
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
