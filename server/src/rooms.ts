@@ -5,6 +5,7 @@ import type { Env } from './env';
 import { getServerByName } from 'partyserver';
 import type { Room } from './party/room';
 import type { Lobby } from './party/lobby';
+import { InvalidPlayerCredentialsError } from './errors';
 
 export const LEASE_MS = 45_000;
 export const ALARM_MS = 15_000;
@@ -41,6 +42,12 @@ export async function authenticate(d1: D1Database, playerId: unknown, token: unk
     .where(and(eq(players.id, id), eq(players.token, token)))
     .get();
   return player?.id ?? null;
+}
+
+export async function requirePlayer(d1: D1Database, playerId: unknown, token: unknown): Promise<number> {
+  const id = await authenticate(d1, playerId, token);
+  if (id === null) throw new InvalidPlayerCredentialsError();
+  return id;
 }
 
 export function deleteEmptyRoom(db: Db, roomId: number) {

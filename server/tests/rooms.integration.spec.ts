@@ -126,6 +126,9 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     const room = await api("/rooms", { ...credentials(a), maxPlayers: 3 }, 201);
     assert.strictEqual(room.id, 1);
     assert.strictEqual(room.memberCount, 1); // Creator is listed before anyone else arrives.
+    await api(`/rooms/${room.id}/join`, { ...credentials(b), token: "invalid" }, 401);
+    await api(`/rooms/${room.id}/leave`, { ...credentials(a), token: "invalid" }, 401);
+    assert.strictEqual((await api("/rooms"))[0].memberCount, 1);
     // A conflicting creator reservation rolls the room insert back as well.
     await api("/rooms", { ...credentials(a), maxPlayers: 3 }, 409);
     assert.deepEqual((await api("/rooms")).map((r) => r.id), [room.id]);

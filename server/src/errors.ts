@@ -1,6 +1,12 @@
 import type { ErrorHandler } from 'hono';
-import { routePath } from 'hono/route';
+import { HTTPException } from 'hono/http-exception';
 import type { Env } from './env';
+
+export class InvalidPlayerCredentialsError extends HTTPException {
+  constructor() {
+    super(401, { message: 'invalid player credentials' });
+  }
+}
 
 function isMembershipConflict(error: Error): boolean {
   // Drizzle may wrap the original D1 error in cause.
@@ -15,14 +21,12 @@ function isMembershipConflict(error: Error): boolean {
 }
 
 export const handleRequestError: ErrorHandler<{ Bindings: Env }> = (error, c) => {
-  const path = routePath(c);
-  if (c.req.method === 'POST' && isMembershipConflict(error)) {
-    if (path === '/api/matchmaking/rooms') {
-      return c.json({ error: 'leave the current room first' }, 409);
-    }
-    if (path === '/api/matchmaking/rooms/:roomId/join') {
-      return c.json({ error: 'already joined a room' }, 409);
-    }
+  if (error instanceof HTTPException) {
+    return c.json({ error: error.message }, error.status);
+  }
+  // The one-room-per-player constraint is a membership conflict regardless of the route.
+  if (isMembershipConflict(error)) {
+    return c.json({ error: 'leave the current room first' }, 409);
   }
   console.error('request failed', error);
   return c.json({ error: 'server error' }, 500);

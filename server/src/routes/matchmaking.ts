@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import { and, count, eq, exists, gt, isNull, lt, lte, or, sql } from 'drizzle-orm';
 import { createDb } from '../db/client';
 import { gameRooms, players, roomMembers } from '../db/schema';
 import type { Env } from '../env';
-import { authenticate, getRoom, LEASE_MS, listRooms, numericId, publishRooms, roomResponse } from '../rooms';
+import { getRoom, LEASE_MS, listRooms, numericId, publishRooms, requirePlayer, roomResponse } from '../rooms';
 
 const matchmaking = new Hono<{ Bindings: Env }>();
 matchmaking.post('/players', async (c) => {
@@ -14,13 +15,10 @@ matchmaking.post('/players', async (c) => {
 
 matchmaking.post('/rooms', async (c) => {
   const body = await c.req.json<{ playerId?: string; token?: string; maxPlayers?: number }>();
-  const playerId = await authenticate(c.env.DB, body.playerId, body.token);
-  if (playerId === null) {
-    return c.json({ error: 'invalid player credentials' }, 401);
-  }
+  const playerId = await requirePlayer(c.env.DB, body.playerId, body.token);
   const maxPlayers = body.maxPlayers ?? 0;
   if (!Number.isSafeInteger(maxPlayers) || maxPlayers < 0) {
-    return c.json({ error: 'maxPlayers must be a non-negative integer (0 = unlimited)' }, 400);
+    throw new HTTPException(400, { message: 'maxPlayers must be a non-negative integer (0 = unlimited)' });
   }
   const db = createDb(c.env.DB);
   const now = Date.now();
@@ -48,10 +46,9 @@ matchmaking.get('/rooms', async (c) => {
 
 matchmaking.post('/rooms/:roomId/join', async (c) => {
   const roomId = numericId(c.req.param('roomId'));
-  if (roomId === null) return c.json({ error: 'invalid room id' }, 400);
+  if (roomId === null) throw new HTTPException(400, { message: 'invalid room id' });
   const body = await c.req.json<{ playerId?: string; token?: string }>();
-  const playerId = await authenticate(c.env.DB, body.playerId, body.token);
-  if (playerId === null) return c.json({ error: 'invalid player credentials' }, 401);
+  const playerId = await requirePlayer(c.env.DB, body.playerId, body.token);
   const now = Date.now();
   const db = createDb(c.env.DB);
   const existing = await db
@@ -63,7 +60,7 @@ matchmaking.post('/rooms/:roomId/join', async (c) => {
     if (existing.roomId === roomId) {
       return c.json(await roomResponse(c.env.DB, roomId));
     }
-    return c.json({ error: 'leave the current room first' }, 409);
+    throw new HTTPException(409, { message: 'leave the current room first' });
   }
   const activeMembers = db
     .select({ memberCount: count() })
@@ -92,7 +89,7 @@ matchmaking.post('/rooms/:roomId/join', async (c) => {
     ),
   ]);
   if (results[1].meta.changes !== 1) {
-    return c.json({ error: 'room is full or no longer available' }, 409);
+    throw new HTTPException(409, { message: 'room is full or no longer available' });
   }
   const room = await getRoom(c.env, roomId);
   await room.scheduleCleanup();
@@ -102,13 +99,10 @@ matchmaking.post('/rooms/:roomId/join', async (c) => {
 matchmaking.post('/rooms/:roomId/leave', async (c) => {
   const roomId = numericId(c.req.param('roomId'));
   if (roomId === null) {
-    return c.json({ error: 'invalid room id' }, 400);
+    throw new HTTPException(400, { message: 'invalid room id' });
   }
   const body = await c.req.json<{ playerId?: string; token?: string }>();
-  const playerId = await authenticate(c.env.DB, body.playerId, body.token);
-  if (playerId === null) {
-    return c.json({ error: 'invalid player credentials' }, 401);
-  }
+  const playerId = await requirePlayer(c.env.DB, body.playerId, body.token);
   const room = await getRoom(c.env, roomId);
   await room.leave(playerId);
   return c.json({ status: 'ok' });
