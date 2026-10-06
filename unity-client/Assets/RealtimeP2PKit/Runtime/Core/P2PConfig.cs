@@ -2,14 +2,8 @@ using UnityEngine;
 
 namespace net.taptappun.RealtimeP2PKit
 {
-    /// <summary>
-    /// Non-endpoint tunables for a RealtimeP2PKit session, as a ScriptableObject asset.
-    /// Connection endpoints (signaling WebSocket URL / STUN servers)
-    /// are saved in P2PConnectionSettings and are switched between
-    /// "Local"/"Remote" via the Unity Editor window "RealtimeP2PKit &gt; Connection Settings"
-    /// (see P2PConnectionSettingsWindow). That split exists specifically so a developer can
-    /// flip between a local `wrangler dev` server and the deployed one.
-    /// </summary>
+    /// <summary>DataChannel, optional negotiation deadline, and logging settings.
+    /// Signaling protocol and authentication are supplied separately through ISignalingClient.</summary>
     [CreateAssetMenu(menuName = "RealtimeP2PKit/P2P Config", fileName = "P2PConfig")]
     public class P2PConfig : ScriptableObject
     {
@@ -20,6 +14,11 @@ namespace net.taptappun.RealtimeP2PKit
         public bool Reliable = false;
         [Tooltip("Only used when Reliable is false. 0 = no retransmits at all.")]
         public int MaxRetransmits = 0;
+
+        [Header("Connection")]
+        [Min(0)]
+        [Tooltip("Optional negotiation deadline in seconds. 0 leaves failure detection to WebRTC.")]
+        public float PeerConnectionTimeoutSeconds = 0;
 
         [Header("Logging")]
         [Tooltip("General connection-flow logging (signaling/WebRTC state). " +

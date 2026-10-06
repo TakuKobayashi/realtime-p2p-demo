@@ -12,7 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4eb9e89b76046974886c3be3ea98f187, type: 3}
   m_Name: P2PConnectionSettings
   m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit::net.taptappun.RealtimeP2PKit.P2PConnectionSettings
-  PlayerEnvironment: 0
   Local:
     SignalingWebSocketUrl: ws://localhost:8787
     StunServerUrls:

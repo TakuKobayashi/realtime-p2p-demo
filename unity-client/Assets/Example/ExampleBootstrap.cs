@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using net.taptappun.RealtimeP2PKit.Example.Matchmaking;
+using net.taptappun.RealtimeP2PKit.Example.Signaling;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Localization;
@@ -51,9 +52,9 @@ namespace net.taptappun.RealtimeP2PKit.Example
                 _manager.RegisterPacketHandler<PositionPacket>(ExamplePlayerController.PositionPacketId, OnPositionReceived);
                 _localPlayer = Instantiate(_localPlayerPrefab, new Vector3(UnityEngine.Random.Range(-4f, 4f), 0.5f, UnityEngine.Random.Range(-4f, 4f)), Quaternion.identity);
                 _localPlayer.name = $"Player {ExampleRoomSession.Player.id} (Local)";
-                await _manager.ConnectToRoomAsync(ExampleRoomSession.Player.id,
-                    ExampleRoomSession.Room.id.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    ExampleRoomSession.Player.token, ExampleRoomSession.WebSocketBaseUrl);
+                var signaling = new PartyKitSignalingClient(ExampleRoomSession.SignalingWebSocketUrl,
+                    ExampleRoomSession.Player.id, ExampleRoomSession.Player.token);
+                await _manager.ConnectAsync(ExampleRoomSession.Player.id, signaling);
                 if (!_exiting) _status = ExampleLocalization.Message("status.controls");
             }
             catch (Exception ex) { Debug.LogException(ex); if (!_exiting) await ExitAsync(ExampleLocalization.Message("status.connection_failed")); }

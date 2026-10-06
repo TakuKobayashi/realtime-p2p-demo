@@ -12,8 +12,7 @@ namespace net.taptappun.RealtimeP2PKit
     /// Editor via P2PConnectionSettingsWindow ("RealtimeP2PKit &gt; Connection Settings"),
     /// and are saved to a Resources asset shared with Player builds.
     ///
-    /// Editor environment selection is per machine. Player builds use the environment
-    /// selected in P2PConnectionSettings, included in Resources.
+    /// Editor environment selection is per machine. Player builds always use Remote.
     /// </summary>
     public static class P2PEndpoints
     {
@@ -23,10 +22,9 @@ namespace net.taptappun.RealtimeP2PKit
         // Defaults used before a settings asset is created.
         // -----------------------------------------------------------------
 
-        public const string DefaultLocalSignalingWebSocketUrl = "ws://localhost:8787";
-
-        // TODO: replace with your actual deployed endpoint (see /server, `pnpm deploy`).
-        public const string DefaultRemoteSignalingWebSocketUrl = "ws://localhost:8787";
+        // The consuming application supplies its complete signaling URL; no server route is assumed.
+        public const string DefaultLocalSignalingWebSocketUrl = "";
+        public const string DefaultRemoteSignalingWebSocketUrl = "";
 
         /// <summary>
         /// Public STUN servers, tried in order (Unity.WebRTC gathers ICE candidates from
@@ -61,7 +59,7 @@ namespace net.taptappun.RealtimeP2PKit
 #if UNITY_EDITOR
             return (P2PEnvironment)PlayerPrefs.GetInt(PrefKeyEnvironment, (int)P2PEnvironment.Local);
 #else
-            return Settings != null ? Settings.PlayerEnvironment : P2PEnvironment.Remote;
+            return P2PEnvironment.Remote;
 #endif
         }
 

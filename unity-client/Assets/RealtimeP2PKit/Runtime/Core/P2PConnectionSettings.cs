@@ -10,7 +10,7 @@ namespace net.taptappun.RealtimeP2PKit
         [Serializable]
         public sealed class EndpointSet
         {
-            public string SignalingWebSocketUrl = "ws://localhost:8787";
+            public string SignalingWebSocketUrl = string.Empty;
             public List<string> StunServerUrls = new List<string>
             {
                 "stun:stun.l.google.com:19302",
@@ -18,7 +18,6 @@ namespace net.taptappun.RealtimeP2PKit
             };
         }
 
-        public P2PEnvironment PlayerEnvironment = P2PEnvironment.Remote;
         public EndpointSet Local = new EndpointSet();
         public EndpointSet Remote = new EndpointSet();
     }

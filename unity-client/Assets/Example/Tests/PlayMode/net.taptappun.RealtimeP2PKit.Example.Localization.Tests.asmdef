@@ -4,7 +4,9 @@
         "net.taptappun.RealtimeP2PKit.Example",
         "Unity.Localization",
         "Unity.ResourceManager",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "net.taptappun.RealtimeP2PKit",
+        "Unity.WebRTC"
     ],
     "optionalUnityReferences": [
         "TestAssemblies"

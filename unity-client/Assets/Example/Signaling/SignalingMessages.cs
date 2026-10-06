@@ -1,6 +1,6 @@
 using System;
 
-namespace net.taptappun.RealtimeP2PKit
+namespace net.taptappun.RealtimeP2PKit.Example.Signaling
 {
     /// <summary>Envelope for messages relayed inside a PartyKit game room (SDP/ICE).</summary>
     [Serializable]

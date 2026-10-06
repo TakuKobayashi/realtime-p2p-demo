@@ -4,7 +4,7 @@
 > ライブラリ本体と接続設定 Window は `unity-client/Assets/RealtimeP2PKit/`、
 > 動作例は `unity-client/Assets/Example/` にあります。
 > `RealtimeP2PKit > Connection Settings` では Local / Remote をプルダウンで選び、
-> シグナリング WebSocket URL と複数の STUN URL を設定します。Player ビルドで使う環境も選択してください。
+> シグナリング WebSocket URL と複数の STUN URL を設定します。Player ビルドは常に Remote を使います。
 > マッチングと HTTP クライアントはライブラリには含まず、`unity-client/Assets/Example/Matchmaking/` にあります。
 > `RealtimeP2PKit > Example Connection Settings` でルーム管理用 HTTP と Room WebSocket のベース URL を設定します。
 > `Assets/RealtimeP2PKit/` と `Assets/Example/` の境界が Package に含めるかどうかの境界です。
@@ -164,33 +164,33 @@ Editor拡張ウィンドウで、以下を設定できます:
   **切り替えると、その下に表示される入力欄が選択中の環境のものだけに差し替わります**
   (LocalとRemoteが同時に並んで表示されることはありません)。
 - 選択中の環境について
-  - Signaling WebSocket URL(例: `ws://localhost:8787` / `wss://realtime-p2p-server.<account>.workers.dev`)
+  - Signaling WebSocket URL（パスを含む完全なURL。例: `wss://signaling.example.com/sessions/42`）
   - STUN Server URLs(**上から順に使用される複数エントリのリスト**。↑↓ボタンで並び替え、＋で追加、✕で削除)
 
-  を入力し、**Save Local / Remote Settings** ボタンで Resources アセットに保存します。
+  を入力し、**Save Local / Remote Settings** ボタンで `Assets/Resources/P2PConnectionSettings.asset` に保存します。
 - **Network Logging**: HTTPのURL・ステータス、およびWebSocket/WebRTC DataChannelの送受信内容をログ出力する
   トグル(詳細は後述)。
 
 接続先は Resources アセットに保存され、Player ビルドにも含まれます。
-Editor の Local / Remote 選択は PlayerPrefs に記録されます。ビルド時は
-`Connection Settings` の **Player build environment** で使用する環境を選択してください。
+Editor の Local / Remote 選択は PlayerPrefs に記録されます。Player ビルドは常に Remote を使います。
 
 Example のマッチング接続先は `RealtimeP2PKit > Example Connection Settings` で設定します。
 Local / Remote ごとに **HTTP Base URL**（例: `http://localhost:8787`）と
 **WebSocket Base URL**（例: `ws://localhost:8787`）を入力し、
 **Save Local / Remote Settings** で保存してください。Remote はデプロイ先の `https://...` / `wss://...` に変更してください。
-HTTP には `/api/matchmaking/...`、WebSocket には `/parties/room/{roomId}` が自動で追加されるため、ベース URL を指定します。
+Demo が HTTP の `/api/matchmaking/...` と WebSocket の `/parties/room/{roomId}` を組み立てるため、Demo設定にはベース URL を指定します。通信ライブラリ自体はパスを追加しません。
 設定アセットは `Assets/Example/Resources/ExampleConnectionSettings.asset` にあり、パッケージ外に置かれます。
-環境選択はパッケージと共通で、Player も **Player build environment** に従います。
+Editorの環境選択はパッケージと共通で、PlayerはRemote固定です。
 `ExampleMatchmakingFlow` の参加者登録・ルーム作成・一覧・参加・退出はこの HTTP 設定を使います。
 Example の Room シグナリングはこの WebSocket 設定を使い、STUN はパッケージの `Connection Settings` を使います。
-ライブラリを直接使う場合は `ConnectToRoomAsync` に WebSocket URL を渡せます。省略時はパッケージの設定を使います。
+ライブラリ本体には `ConnectAsync(localPeerId, signalingClient)` でシグナリング実装を渡します。汎用の `WebSocketSignalingTransport` は完全なURLをそのまま使用し、パス・認証情報・JSON形式を追加しません。WindowのURLは利用側のアダプターが `P2PEndpoints.GetSignalingWebSocketUrl()` で取得できます。Demoは専用の接続設定を使用します。
+Demoの `Assets/Example/Signaling/PartyKitSignalingClient.cs` がRoom参加・認証クエリ・JSON形式・heartbeatを扱います。Room管理のHTTP処理もDemoのみです。
 
 初期値は次の通りです:
 
 | | Local(既定値) | Remote(既定値) |
 |---|---|---|
-| Signaling WebSocket URL | `ws://localhost:8787` | `wss://realtime-p2p-server.example.workers.dev`(要変更) |
+| Signaling WebSocket URL | 未設定（完全なURLを指定） | 未設定（完全なURLを指定） |
 | STUN Server URLs | Google / Mozilla の公開STUN(下記) | 同左 |
 
 ```
@@ -242,7 +242,7 @@ HTTPはメソッド・URL・ステータスのみ記録し、認証トークン�
 P2PManager.Instance.Initialize();
 P2PManager.Instance.RegisterPacketHandler<MyPacket>(1, (senderId, packet) => { ... });
 P2PManager.Instance.PeerConnected += peerId => { /* 相手の表示を追加 */ };
-await P2PManager.Instance.ConnectToRoomAsync(playerId, roomId, token);
+await P2PManager.Instance.ConnectAsync(localPeerId, signalingClient); // 利用側のISignalingClient実装
 P2PManager.Instance.Send(1, new MyPacket { ... });
 ```
 

@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace net.taptappun.RealtimeP2PKit
 {
-    /// <summary>A room-scoped mesh: one WebRTC connection per remote participant, without a fixed peer limit.</summary>
+    /// <summary>A peer-to-peer mesh: one WebRTC connection per remote participant, without a fixed peer limit.</summary>
     [DisallowMultipleComponent]
     public class P2PManager : MonoBehaviour
     {
@@ -28,8 +28,8 @@ namespace net.taptappun.RealtimeP2PKit
         }
 
         public event Action<P2PSessionState> StateChanged;
-        public event Action<P2PSessionInfo> RoomConnecting;
-        public event Action RoomJoined;
+        public event Action<P2PSessionInfo> SignalingConnecting;
+        public event Action SignalingReady;
         public event Action DataChannelReady;
         public event Action<string> ConnectionClosed;
         public event Action<string> PeerJoined;
@@ -37,8 +37,8 @@ namespace net.taptappun.RealtimeP2PKit
         public event Action<string> PeerLeft;
         public event Action<string> PeerConnectionFailed;
         public P2PSessionInfo Session { get; private set; } = new() { State = P2PSessionState.Idle };
-        public bool IsOnlineMatch { get; private set; }
-        public IReadOnlyCollection<string> PeerIds => _roomPeers.ToArray();
+        public bool IsSessionActive { get; private set; }
+        public IReadOnlyCollection<string> PeerIds => _sessionPeers.ToArray();
         public IReadOnlyCollection<string> ConnectedPeerIds => _peers.Where(p => p.Value.Ready).Select(p => p.Key).ToArray();
 
         private sealed class Peer
@@ -48,16 +48,15 @@ namespace net.taptappun.RealtimeP2PKit
             public float StartedAt;
         }
         private readonly Dictionary<string, Peer> _peers = new();
-        private readonly HashSet<string> _roomPeers = new();
+        private readonly HashSet<string> _sessionPeers = new();
         private P2PConfig _config;
         private P2PConfig _defaultConfig;
         private PacketRouter _packetRouter;
-        private PartyKitSignalingClient _signalingClient;
-        private TaskCompletionSource<bool> _joined;
+        private ISignalingClient _signalingClient;
+        private TaskCompletionSource<bool> _connecting;
+        private Action _detachSignaling;
         private P2PEnvironment _endpointEnvironment;
         private bool _webRtcUpdateStarted;
-        private float _lastHeartbeat;
-        private float _lastSignal;
 
         private void Awake()
         {
@@ -78,7 +77,12 @@ namespace net.taptappun.RealtimeP2PKit
                 config = _defaultConfig;
             }
             _config = config;
+#if UNITY_EDITOR
             _endpointEnvironment = environment;
+#else
+            // Player builds always connect using the Remote configuration.
+            _endpointEnvironment = P2PEnvironment.Remote;
+#endif
             P2PLog.Level = config.LogLevel;
             _packetRouter ??= new PacketRouter(new MessagePackPayloadCodec());
             if (!_webRtcUpdateStarted)
@@ -106,7 +110,7 @@ namespace net.taptappun.RealtimeP2PKit
         /// <summary>Broadcast to every open peer data channel. Waiting alone is valid.</summary>
         public void Send<T>(byte packetId, T value)
         {
-            if (!IsOnlineMatch || _peers.Count == 0) return;
+            if (!IsSessionActive || _peers.Count == 0) return;
             var buffer = _packetRouter.Encode(packetId, value);
             if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebRtcSend(packetId, value, buffer.Length));
             foreach (var peer in _peers.Values.ToArray())
@@ -122,87 +126,88 @@ namespace net.taptappun.RealtimeP2PKit
             }
         }
 
-        /// <summary>Join a room reserved through the consuming application's HTTP API.</summary>
-        public async Task ConnectToRoomAsync(string localPlayerId, string roomId, string token, string signalingWebSocketUrl = null)
+        /// <summary>Connect using an application-provided signaling implementation. This manager owns its lifetime.</summary>
+        public async Task ConnectAsync(string localPeerId, ISignalingClient signalingClient)
         {
-            if (string.IsNullOrWhiteSpace(localPlayerId)) throw new ArgumentException("Player ID is required.", nameof(localPlayerId));
-            if (string.IsNullOrWhiteSpace(roomId)) throw new ArgumentException("Room ID is required.", nameof(roomId));
-            if (string.IsNullOrWhiteSpace(token)) throw new ArgumentException("Player token is required.", nameof(token));
+            if (string.IsNullOrWhiteSpace(localPeerId)) throw new ArgumentException("Peer ID is required.", nameof(localPeerId));
+            if (signalingClient == null) throw new ArgumentNullException(nameof(signalingClient));
+            if (ReferenceEquals(signalingClient, _signalingClient)) throw new InvalidOperationException("The signaling client is already in use.");
             EnsureInitialized();
-            var url = signalingWebSocketUrl ?? P2PEndpoints.GetSignalingWebSocketUrl(_endpointEnvironment);
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || (uri.Scheme != "ws" && uri.Scheme != "wss"))
-                throw new ArgumentException("A valid signaling WebSocket URL is required.");
             Disconnect();
-            IsOnlineMatch = true;
-            Session = new P2PSessionInfo { LocalPlayerId = localPlayerId, RoomId = roomId };
-            _lastSignal = _lastHeartbeat = Time.realtimeSinceStartup;
-            var joined = _joined = new TaskCompletionSource<bool>();
-            var client = _signalingClient = new PartyKitSignalingClient(url);
-            client.MessageReceived += message => { if (_signalingClient == client) OnSignalMessage(message); };
-            client.Connected += () => { if (_signalingClient == client) client.Send(new RoomSignalEnvelope { type = "client-ready" }); };
-            client.Disconnected += reason => { if (_signalingClient == client) FailSession(reason); };
-            RoomConnecting?.Invoke(Session);
+            IsSessionActive = true;
+            Session = new P2PSessionInfo { LocalPeerId = localPeerId };
+            var completion = _connecting = new TaskCompletionSource<bool>();
+            var client = _signalingClient = signalingClient;
+            Action<string, bool> joined = (id, initiator) => { if (_signalingClient == client) AddPeer(id, initiator); };
+            Action<string> left = id =>
+            {
+                if (_signalingClient != client) return;
+                if (_sessionPeers.Remove(id)) { RemoveConnection(id); PeerLeft?.Invoke(id); }
+                RefreshState();
+            };
+            Action<string, SignalingMessage> received = (id, message) => { if (_signalingClient == client) OnSignalMessage(id, message); };
+            Action<string> closed = reason => { if (_signalingClient == client) FailSession(reason); };
+            client.PeerJoined += joined;
+            client.PeerLeft += left;
+            client.MessageReceived += received;
+            client.Disconnected += closed;
+            _detachSignaling = () =>
+            {
+                client.PeerJoined -= joined;
+                client.PeerLeft -= left;
+                client.MessageReceived -= received;
+                client.Disconnected -= closed;
+            };
             SetState(P2PSessionState.SignalingConnecting);
+            SignalingConnecting?.Invoke(Session);
+            // Observe adapter failures even if Disconnect cancels the caller's pending connection.
+            _ = CompleteConnectionAsync(client, completion);
+            await completion.Task;
+        }
+        private async Task CompleteConnectionAsync(ISignalingClient client, TaskCompletionSource<bool> completion)
+        {
             try
             {
-                await client.ConnectAsync(roomId, localPlayerId, token);
-                await joined.Task; // Server acknowledgement, not waiting for another player.
+                await client.ConnectAsync();
+                if (_signalingClient != client) { completion.TrySetCanceled(); return; }
+                Session.IsSignalingReady = true;
+                RefreshState();
+                SignalingReady?.Invoke();
+                completion.TrySetResult(true);
             }
-            catch
+            catch (Exception error)
             {
-                if (_signalingClient == client) FailSession("room connection failed");
-                throw;
+                completion.TrySetException(error);
+                if (_signalingClient == client) FailSession("signaling connection failed");
             }
         }
-        private void OnSignalMessage(RoomSignalEnvelope message)
+        private void OnSignalMessage(string from, SignalingMessage message)
         {
-            if (!IsOnlineMatch || message == null) return;
-            _lastSignal = Time.realtimeSinceStartup;
-            switch (message.type)
+            if (!IsSessionActive || message == null || from == null || !_peers.TryGetValue(from, out var peer)) return;
+            switch (message.Type)
             {
-                case "heartbeat": return;
-                case "room-joined":
-                    Session.IsRoomJoined = true;
-                    foreach (var id in message.peers ?? Array.Empty<string>()) AddPeer(id, message.isInitiator);
-                    RefreshState();
-                    _joined.TrySetResult(true);
-                    RoomJoined?.Invoke();
-                    return;
-                case "peer-joined": AddPeer(message.from, message.isInitiator); return;
-                case "peer-left":
-                    if (_roomPeers.Remove(message.from))
-                    {
-                        RemoveConnection(message.from);
-                        PeerLeft?.Invoke(message.from);
-                    }
-                    RefreshState();
-                    return;
-            }
-            if (message.to != Session.LocalPlayerId || message.from == null || !_peers.TryGetValue(message.from, out var peer)) return;
-            switch (message.type)
-            {
-                case "offer":
-                    peer.Connection.SetRemoteDescription(new RTCSessionDescription { type = RTCSdpType.Offer, sdp = message.sdp },
-                        () => peer.Connection.CreateAnswer(answer => SendSignal(message.from, new RoomSignalEnvelope { type = "answer", sdp = answer.sdp })));
+                case SignalingMessageType.Offer:
+                    peer.Connection.SetRemoteDescription(new RTCSessionDescription { type = RTCSdpType.Offer, sdp = message.Sdp },
+                        () => peer.Connection.CreateAnswer(answer => SendSignal(from, new SignalingMessage { Type = SignalingMessageType.Answer, Sdp = answer.sdp })));
                     break;
-                case "answer":
-                    peer.Connection.SetRemoteDescription(new RTCSessionDescription { type = RTCSdpType.Answer, sdp = message.sdp });
+                case SignalingMessageType.Answer:
+                    peer.Connection.SetRemoteDescription(new RTCSessionDescription { type = RTCSdpType.Answer, sdp = message.Sdp });
                     break;
-                case "ice-candidate":
-                    peer.Connection.AddRemoteIceCandidate(new RTCIceCandidateInit { candidate = message.candidate,
-                        sdpMid = message.sdpMid, sdpMLineIndex = message.sdpMLineIndex });
+                case SignalingMessageType.IceCandidate:
+                    peer.Connection.AddRemoteIceCandidate(new RTCIceCandidateInit { candidate = message.Candidate,
+                        sdpMid = message.SdpMid, sdpMLineIndex = message.SdpMLineIndex });
                     break;
             }
         }
         private void AddPeer(string id, bool initiator)
         {
-            if (string.IsNullOrEmpty(id) || id == Session.LocalPlayerId || _peers.ContainsKey(id)) return;
+            if (string.IsNullOrEmpty(id) || id == Session.LocalPeerId || _peers.ContainsKey(id)) return;
             var peer = new Peer { Connection = new WebRtcPeerConnection(this, _config, P2PEndpoints.GetStunServerUrls(_endpointEnvironment)),
                 StartedAt = Time.realtimeSinceStartup };
             _peers.Add(id, peer);
-            if (_roomPeers.Add(id)) PeerJoined?.Invoke(id);
-            peer.Connection.LocalIceCandidateGathered += candidate => SendSignal(id, new RoomSignalEnvelope { type = "ice-candidate",
-                candidate = candidate.Candidate, sdpMid = candidate.SdpMid, sdpMLineIndex = candidate.SdpMLineIndex });
+            if (_sessionPeers.Add(id)) PeerJoined?.Invoke(id);
+            peer.Connection.LocalIceCandidateGathered += candidate => SendSignal(id, new SignalingMessage { Type = SignalingMessageType.IceCandidate,
+                Candidate = candidate.Candidate, SdpMid = candidate.SdpMid, SdpMLineIndex = candidate.SdpMLineIndex });
             peer.Connection.DataReceived += data => { if (IsCurrent(id, peer)) _packetRouter.Dispatch(data, id); };
             peer.Connection.DataChannelOpened += () => MarkConnected(id, peer);
             peer.Connection.DataChannelClosed += () => FailPeer(id, peer);
@@ -211,14 +216,13 @@ namespace net.taptappun.RealtimeP2PKit
                 if (state is RTCPeerConnectionState.Failed or RTCPeerConnectionState.Closed) FailPeer(id, peer);
             };
             peer.Connection.Initialize(initiator);
-            if (initiator) peer.Connection.CreateOffer(offer => SendSignal(id, new RoomSignalEnvelope { type = "offer", sdp = offer.sdp }));
+            if (initiator) peer.Connection.CreateOffer(offer => SendSignal(id, new SignalingMessage { Type = SignalingMessageType.Offer, Sdp = offer.sdp }));
             RefreshState();
         }
-        private void SendSignal(string id, RoomSignalEnvelope message)
+        private void SendSignal(string id, SignalingMessage message)
         {
-            if (!IsOnlineMatch || !_peers.ContainsKey(id)) return;
-            message.to = id;
-            _signalingClient?.Send(message);
+            if (!IsSessionActive || !_peers.ContainsKey(id)) return;
+            _signalingClient?.Send(id, message);
         }
         private void MarkConnected(string id, Peer peer)
         {
@@ -228,13 +232,13 @@ namespace net.taptappun.RealtimeP2PKit
             PeerConnected?.Invoke(id);
             DataChannelReady?.Invoke();
         }
-        private bool IsCurrent(string id, Peer peer) => IsOnlineMatch && _peers.TryGetValue(id, out var current) && current == peer;
+        private bool IsCurrent(string id, Peer peer) => IsSessionActive && _peers.TryGetValue(id, out var current) && current == peer;
         private void FailPeer(string id, Peer peer)
         {
             if (!IsCurrent(id, peer)) return;
             RemoveConnection(id);
             RefreshState();
-            PeerConnectionFailed?.Invoke(id); // Other participants and the room stay connected.
+            PeerConnectionFailed?.Invoke(id); // Other peers and the signaling session stay connected.
         }
         private void RemoveConnection(string id)
         {
@@ -245,26 +249,20 @@ namespace net.taptappun.RealtimeP2PKit
         private void Update()
         {
             _signalingClient?.DispatchMessageQueue();
-            if (!IsOnlineMatch) return;
+            if (!IsSessionActive) return;
             var now = Time.realtimeSinceStartup;
-            if (now - _lastSignal > 40f) { FailSession("signaling heartbeat timeout"); return; }
-            if (now - _lastHeartbeat > 10f)
-            {
-                _lastHeartbeat = now;
-                _signalingClient.Send(new RoomSignalEnvelope { type = "heartbeat" });
-            }
             foreach (var entry in _peers.ToArray())
             {
                 if (entry.Value.Connection.IsDataChannelOpen) MarkConnected(entry.Key, entry.Value);
-                else if (!entry.Value.Ready && now - entry.Value.StartedAt > 30f) FailPeer(entry.Key, entry.Value);
+                else if (!entry.Value.Ready && _config.PeerConnectionTimeoutSeconds > 0 && now - entry.Value.StartedAt > _config.PeerConnectionTimeoutSeconds) FailPeer(entry.Key, entry.Value);
             }
         }
         private void RefreshState()
         {
-            if (!IsOnlineMatch) return;
+            if (!IsSessionActive) return;
             SetState(_peers.Values.Any(p => p.Ready) ? P2PSessionState.Connected :
                 _peers.Count > 0 ? P2PSessionState.Negotiating :
-                Session.IsRoomJoined ? P2PSessionState.WaitingForPeers : P2PSessionState.SignalingConnecting);
+                Session.IsSignalingReady ? P2PSessionState.WaitingForPeers : P2PSessionState.SignalingConnecting);
         }
         private void SetState(P2PSessionState state)
         {
@@ -274,20 +272,23 @@ namespace net.taptappun.RealtimeP2PKit
         }
         private void FailSession(string reason)
         {
-            if (!IsOnlineMatch) return;
+            if (!IsSessionActive) return;
             Disconnect();
             SetState(P2PSessionState.Failed);
             ConnectionClosed?.Invoke(reason);
         }
         public void Disconnect()
         {
-            IsOnlineMatch = false;
+            IsSessionActive = false;
             var client = _signalingClient;
             _signalingClient = null;
+            _detachSignaling?.Invoke();
+            _detachSignaling = null;
+            _connecting?.TrySetCanceled();
+            _connecting = null;
             client?.Dispose();
-            _joined?.TrySetCanceled();
             foreach (var id in _peers.Keys.ToArray()) RemoveConnection(id);
-            _roomPeers.Clear();
+            _sessionPeers.Clear();
             SetState(P2PSessionState.Idle);
             Session = new P2PSessionInfo { State = P2PSessionState.Idle };
         }

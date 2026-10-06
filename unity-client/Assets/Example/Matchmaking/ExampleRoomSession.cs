@@ -11,7 +11,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
         public static ExamplePlayerSession Player;
         public static MachingRoom Room;
         public static string HttpBaseUrl;
-        public static string WebSocketBaseUrl;
+        public static string SignalingWebSocketUrl;
         public static LocalizedString Notice;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -20,7 +20,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
             Player = null;
             Room = null;
             HttpBaseUrl = null;
-            WebSocketBaseUrl = null;
+            SignalingWebSocketUrl = null;
             Notice = null;
         }
     }

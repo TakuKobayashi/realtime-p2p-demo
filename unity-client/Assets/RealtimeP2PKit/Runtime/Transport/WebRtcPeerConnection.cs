@@ -50,7 +50,9 @@ namespace net.taptappun.RealtimeP2PKit
         {
             var rtcConfig = new RTCConfiguration
             {
-                iceServers = new[] { new RTCIceServer { urls = _stunServerUrls.ToArray() } }
+                // An empty STUN list means no ICE servers; a server entry with zero URLs is invalid.
+                iceServers = _stunServerUrls.Count == 0 ? Array.Empty<RTCIceServer>() :
+                    new[] { new RTCIceServer { urls = _stunServerUrls.ToArray() } }
             };
 
             if (P2PLog.ShouldLog(P2PLogLevel.Info))

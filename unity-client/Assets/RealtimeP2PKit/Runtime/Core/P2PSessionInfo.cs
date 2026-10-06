@@ -14,9 +14,8 @@ namespace net.taptappun.RealtimeP2PKit
     /// <summary>Mutable state for the current (or most recent) P2P session.</summary>
     public class P2PSessionInfo
     {
-        public string LocalPlayerId;
-        public string RoomId;
-        public bool IsRoomJoined;
+        public string LocalPeerId;
+        public bool IsSignalingReady;
         public P2PSessionState State;
     }
 }

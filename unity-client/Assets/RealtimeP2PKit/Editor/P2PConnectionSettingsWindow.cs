@@ -10,7 +10,7 @@ namespace net.taptappun.RealtimeP2PKit.Editor
     /// </summary>
     public class P2PConnectionSettingsWindow : EditorWindow
     {
-        private const string SettingsAssetPath = "Assets/RealtimeP2PKit/Resources/P2PConnectionSettings.asset";
+        private const string SettingsAssetPath = "Assets/Resources/P2PConnectionSettings.asset";
         private P2PConnectionSettings _settings;
         private string _localSignalingWebSocketUrl;
         private List<string> _localStunServerUrls;
@@ -40,8 +40,8 @@ namespace net.taptappun.RealtimeP2PKit.Editor
             var settings = AssetDatabase.LoadAssetAtPath<P2PConnectionSettings>(SettingsAssetPath);
             if (settings == null)
             {
-                if (!AssetDatabase.IsValidFolder("Assets/RealtimeP2PKit/Resources"))
-                    AssetDatabase.CreateFolder("Assets/RealtimeP2PKit", "Resources");
+                if (!AssetDatabase.IsValidFolder("Assets/Resources"))
+                    AssetDatabase.CreateFolder("Assets", "Resources");
                 settings = CreateInstance<P2PConnectionSettings>();
                 AssetDatabase.CreateAsset(settings, SettingsAssetPath);
                 AssetDatabase.SaveAssets();
@@ -73,16 +73,6 @@ namespace net.taptappun.RealtimeP2PKit.Editor
             var current = P2PEndpoints.GetCurrentEnvironment();
             var selected = (P2PEnvironment)EditorGUILayout.EnumPopup("Environment to edit", current);
             if (selected != current) P2PEndpoints.SetCurrentEnvironment(selected);
-            if (_settings != null)
-            {
-                EditorGUI.BeginChangeCheck();
-                _settings.PlayerEnvironment = (P2PEnvironment)EditorGUILayout.EnumPopup("Player build environment", _settings.PlayerEnvironment);
-                if (EditorGUI.EndChangeCheck())
-                {
-                    EditorUtility.SetDirty(_settings);
-                    AssetDatabase.SaveAssets();
-                }
-            }
 
             EditorGUILayout.Space();
 
