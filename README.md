@@ -6,7 +6,7 @@
 > `RealtimeP2PKit > Connection Settings` では Local / Remote をプルダウンで選び、
 > シグナリング WebSocket URL と複数の STUN URL を設定します。Player ビルドは常に Remote を使います。
 > マッチングと HTTP クライアントはライブラリには含まず、`unity-client/Assets/Example/Matchmaking/` にあります。
-> `RealtimeP2PKit > Example Connection Settings` でルーム管理用 HTTP と Room WebSocket のベース URL を設定します。
+> `RealtimeP2PKit > Example Connection Settings` でルーム管理用 HTTP Base URL と完全な Lobby WebSocket URL を設定します。
 > `Assets/RealtimeP2PKit/` と `Assets/Example/` の境界が Package に含めるかどうかの境界です。
 
 DemoのUGUIはUnity Localizationで日本語・英語に対応しています。各画面の言語プルダウンで切り替えられ、選択は保存されます。初回はシステム言語を使い、対応しない言語の場合は英語になります。
@@ -25,7 +25,7 @@ Demoの接続設定Windowは `Assets/Editor/Example/` にあります。Demo・�
    |                (Hono + D1 + partyserver,         |
    |                 ひとつの Cloudflare Worker)       |
    |   2. HTTPで参加枠を確保してP2PExampleへ遷移       |
-   |  3. wss://.../parties/room/{roomId} に接続(signaling)
+   |  3. wss://.../signaling に接続し、参加メッセージを送信
    |<===== SDP offer/answer, ICE candidates ==========>|
    |  4. WebRTC P2P DataChannel (STUNのみ, TURNなし)     |
    |<========= MessagePack encoded xyz ===============>|
@@ -33,9 +33,7 @@ Demoの接続設定Windowは `Assets/Editor/Example/` にあります。Demo・�
 
 - **ルーム管理**: Hono + D1（参加者・ルーム・参加枠。IDはAUTOINCREMENT）
 - **シグナリング**: [partyserver](https://github.com/cloudflare/partykit/tree/main/packages/partyserver)
-  (Cloudflareが公式に配布している「PartyKitのDurable Object実装」。`Server`クラスを
-  Durable Objectとして同じWorkerにバインドするだけで、PartyKitと同じ`wss://.../parties/{party}/{room}`
-  というルーティング規約のWebSocketサーバーになります)
+  の `Server` クラスでWebSocketを管理します。Honoが固定の `/signaling` からDurable Objectへ接続を渡し、Roomは参加メッセージで選びます。
 - **P2P本体**: Unity (`com.unity.webrtc`) + MessagePack、STUNのみ・TURNなし直接P2P
 
 **重要**: matching-api(REST)とsignaling(WebSocket)は **同じ`wrangler.jsonc`・同じ`src/index.ts`・
@@ -50,10 +48,10 @@ server/                     単一のCloudflare Worker (Hono + Drizzle + D1 + pa
   src/
     index.ts                fetchハンドラのエントリーポイント。Hono REST と
                              partyserverのWebSocketルーティングをここで1本化
-    env.ts                  Bindings型 (DB, Lobby, Room)
+    env.ts                  Bindings型 (DB, Lobby, Signaling)
     routes/matchmaking.ts   /players, /rooms, /rooms/:id/join, /rooms/:id/leave
     party/lobby.ts          /parties/lobby/rooms ― 新規ルームの差分通知
-    party/room.ts           Durable Object "Room"（1ルームにつき1インスタンス、宛先付きSDP/ICE中継）
+    party/signaling.ts      固定エンドポイントのDurable Object。参加済みRoom内で宛先付きSDP/ICEを中継
     db/schema.ts, db/client.ts
   wrangler.jsonc             D1バインディング + Durable Objectバインディングを1ファイルに
   migrations/                D1マイグレーション
@@ -176,17 +174,27 @@ Editor の Local / Remote 選択は PlayerPrefs に記録されます。Player �
 
 Example のマッチング接続先は `RealtimeP2PKit > Example Connection Settings` で設定します。
 Local / Remote ごとに **HTTP Base URL**（例: `http://localhost:8787`）と
-**WebSocket Base URL**（例: `ws://localhost:8787`）を入力し、
+**Lobby WebSocket URL**（例: `ws://localhost:8787/parties/lobby/rooms`）を入力し、
 **Save Local / Remote Settings** で保存してください。Remote はデプロイ先の `https://...` / `wss://...` に変更してください。
-Demo が HTTP の `/api/matchmaking/...` と WebSocket の `/parties/room/{roomId}` を組み立てるため、Demo設定にはベース URL を指定します。通信ライブラリ自体はパスを追加しません。
+HTTPのみDemoが `/api/matchmaking/...` を追加します。Lobbyもシグナリングも、WebSocketにはパスを含む完全なURLを指定します。
 設定アセットは `Assets/Example/Resources/ExampleConnectionSettings.asset` にあり、パッケージ外に置かれます。
 Editorの環境選択はパッケージと共通で、PlayerはRemote固定です。
 `ExampleMatchmakingFlow` の参加者登録・ルーム作成・一覧・参加・退出はこの HTTP 設定を使います。
-Example の Room シグナリングはこの WebSocket 設定を使い、STUN はパッケージの `Connection Settings` を使います。
-ライブラリ本体には `ConnectAsync(localPeerId, signalingClient)` でシグナリング実装を渡します。汎用の `WebSocketSignalingTransport` は完全なURLをそのまま使用し、パス・認証情報・JSON形式を追加しません。WindowのURLは利用側のアダプターが `P2PEndpoints.GetSignalingWebSocketUrl()` で取得できます。Demoは専用の接続設定を使用します。
-Demoの `Assets/Example/Signaling/PartyKitSignalingClient.cs` がRoom参加・認証クエリ・JSON形式・heartbeatを扱います。Room管理のHTTP処理もDemoのみです。
+Example のシグナリングURLとSTUNは `Connection Settings` を使います。Demo同梱アセットの初期URLは `ws://localhost:8787/signaling` です。Remoteはデプロイ先の `wss://.../signaling` に変更してください。
+ライブラリ本体には `ConnectAsync(localPeerId, signalingClient)` でシグナリング実装を渡します。汎用の `WebSocketSignalingTransport` は完全なURLをそのまま使用し、パス・認証情報・JSON形式を追加しません。WindowのURLは利用側のアダプターが `P2PEndpoints.GetSignalingWebSocketUrl()` で取得できます。DemoもこのURLを使い、Room IDや認証情報をURLに追加しません。
+Demoの `Assets/Example/Signaling/PartyKitSignalingClient.cs` がRoom参加・認証メッセージ・JSON形式・heartbeatを扱います。Room管理のHTTP処理もDemoのみです。
 
-初期値は次の通りです:
+DemoサーバーではHTTPで参加予約した後、固定URL `/signaling` に接続し、最初に
+`{"type":"join","roomId":"42","playerId":"123","token":"..."}` を送ります。
+D1の予約と認証が一致すると `room-joined` が返り、それ以降は所属Room内の相手だけに中継します。
+未参加の通信や予約のない参加は拒否します。Room IDと認証情報はURLに含めません。
+シグナリング接続は1つのDurable Objectで受け、接続状態のRoom IDで配信先を選びます。
+これはDemoの構成であり、汎用ライブラリの制約ではありません。
+
+旧 `/parties/room/{roomId}` との互換性はありません。サーバーとDemoを一緒に更新してください。
+初期定義は `wrangler.jsonc` のv1とD1の `0000_smart_vulture.sql` にまとめています。
+
+ライブラリの新規設定の初期値は次の通りです:
 
 | | Local(既定値) | Remote(既定値) |
 |---|---|---|
@@ -294,7 +302,7 @@ P2PExample側の `ExampleBootstrap` がWebSocketに接続します。IDはサー
 
 サーバーとUnityを同時に更新し、`server` で `pnpm db:migrate:local` を実行してください。
 本番環境を更新する場合はデプロイに合わせて `pnpm db:migrate:remote` が必要です。
-未適用の初期migration `0000_init.sql` / `0001_game_rooms.sql` で、
+初期migration `0000_smart_vulture.sql` で、
 `players`・`game_rooms`・`room_members` を `INTEGER PRIMARY KEY AUTOINCREMENT` で作成します。
 新しい通信プロトコルで旧ルームを継続することはできません。IDは識別にだけ使い、ホスト権限やOffer役割をIDから導きません。
 セキュリティ用トークンはIDとは別に発行します。

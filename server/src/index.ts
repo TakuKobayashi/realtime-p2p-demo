@@ -1,48 +1,31 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { getServerByName, routePartykitRequest } from 'partyserver';
+import { getServerByName } from 'partyserver';
 import matchmaking from './routes/matchmaking';
 import { Lobby } from './party/lobby';
-import { Room } from './party/room';
+import { Signaling } from './party/signaling';
 import type { Env } from './env';
+import { getSignaling } from './rooms';
 import { createErrorHandler } from './utils/errors';
 import { mapDatabaseError } from './db/errors';
 
-// Durable Object classes must be exported from the worker's main module so
-// wrangler can find them (see wrangler.jsonc durable_objects.bindings).
-export { Lobby, Room };
-
+export { Lobby, Signaling };
 const app = new Hono<{ Bindings: Env }>();
-app.use('*', cors());
+app.use('/api/*', cors());
+app.use('/health', cors());
 app.get('/health', (c) => c.text('ok'));
 app.route('/api/matchmaking', matchmaking);
 app.onError(createErrorHandler<{ Bindings: Env }>(mapDatabaseError));
 
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    const path = new URL(request.url).pathname;
-    // Internal room control endpoints are reachable only through the binding.
-    if (path.startsWith('/parties/') && request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
-      return new Response('websocket upgrade required', { status: 426 });
-    }
-    // WebSocket requests to /parties/lobby/rooms and
-    // /parties/room/{id} are routed straight to the matching Durable Object.
-    // Everything else falls through to the Hono REST API below.
-    // This is all ONE Cloudflare Worker / ONE wrangler deploy - matchmaking
-    // (Hono + D1) and signaling (partyserver Durable Objects) live together.
-    const partyResponse = await routePartykitRequest(request, env, {
-      async onBeforeConnect(_request, lobby) {
-        // Initialize discovery when a browser connects, independently of room creation.
-        // This persists the Lobby identity before its first WebSocket is accepted.
-        if (lobby.className === 'Lobby') {
-          await getServerByName<Env, Lobby>(env.Lobby, lobby.name);
-        }
-      },
-    });
-    if (partyResponse) {
-      return partyResponse;
-    }
+app.get('/signaling', async (c) => {
+  if (c.req.header('Upgrade')?.toLowerCase() !== 'websocket') return c.text('websocket upgrade required', 426);
+  const signaling = await getSignaling(c.env);
+  return signaling.fetch(c.req.raw);
+});
+app.get('/parties/lobby/rooms', async (c) => {
+  if (c.req.header('Upgrade')?.toLowerCase() !== 'websocket') return c.text('websocket upgrade required', 426);
+  const lobby = await getServerByName<Env, Lobby>(c.env.Lobby, 'rooms');
+  return lobby.fetch(c.req.raw);
+});
 
-    return app.fetch(request, env, ctx);
-  },
-} satisfies ExportedHandler<Env>;
+export default app;

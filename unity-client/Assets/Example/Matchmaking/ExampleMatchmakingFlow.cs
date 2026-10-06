@@ -35,7 +35,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
         private static void Remember(MachingRoom room)
         {
             ExampleRoomSession.Room = room;
-            ExampleRoomSession.SignalingWebSocketUrl = ExampleEndpoints.GetRoomWebSocketUrl(room.id);
+            ExampleRoomSession.SignalingWebSocketUrl = P2PEndpoints.GetSignalingWebSocketUrl();
         }
         public static async Task LeaveCurrentRoomAsync()
         {

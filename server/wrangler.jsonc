@@ -14,18 +14,18 @@
     }
   ],
 
-  // --- Signaling (PartyKit-style rooms via partyserver, running as Durable Objects
+  // --- Demo signaling and discovery via partyserver, running as Durable Objects
   //     inside THIS SAME worker - no separate deployment) ---
   "durable_objects": {
     "bindings": [
       { "name": "Lobby", "class_name": "Lobby" },
-      { "name": "Room", "class_name": "Room" }
+      { "name": "Signaling", "class_name": "Signaling" }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["Lobby", "Room"]
+      "new_sqlite_classes": ["Lobby", "Signaling"]
     }
   ]
 }

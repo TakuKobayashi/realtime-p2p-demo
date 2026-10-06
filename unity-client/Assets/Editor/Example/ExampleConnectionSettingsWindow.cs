@@ -46,7 +46,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Editor
             var endpoints = _serializedSettings.FindProperty(selected == P2PEnvironment.Local ? "Local" : "Remote");
             EditorGUILayout.LabelField(selected.ToString(), EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(endpoints.FindPropertyRelative("HttpBaseUrl"), new GUIContent("HTTP Base URL"));
-            EditorGUILayout.PropertyField(endpoints.FindPropertyRelative("WebSocketBaseUrl"), new GUIContent("WebSocket Base URL"));
+            EditorGUILayout.PropertyField(endpoints.FindPropertyRelative("LobbyWebSocketUrl"), new GUIContent("Lobby WebSocket URL"));
             _serializedSettings.ApplyModifiedProperties();
 
             var valid = IsValid(_settings.Local) && IsValid(_settings.Remote);
@@ -67,7 +67,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Editor
 
         private static bool IsValid(ExampleConnectionSettings.EndpointSet endpoints)
             => endpoints != null && IsUrl(endpoints.HttpBaseUrl, "http", "https") &&
-               IsUrl(endpoints.WebSocketBaseUrl, "ws", "wss");
+               IsUrl(endpoints.LobbyWebSocketUrl, "ws", "wss");
 
         private static bool IsUrl(string value, string scheme, string secureScheme)
             => Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) &&
@@ -76,7 +76,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Editor
         private static void Normalize(ExampleConnectionSettings.EndpointSet endpoints)
         {
             endpoints.HttpBaseUrl = endpoints.HttpBaseUrl.Trim().TrimEnd('/');
-            endpoints.WebSocketBaseUrl = endpoints.WebSocketBaseUrl.Trim().TrimEnd('/');
+            endpoints.LobbyWebSocketUrl = endpoints.LobbyWebSocketUrl.Trim();
         }
     }
 }

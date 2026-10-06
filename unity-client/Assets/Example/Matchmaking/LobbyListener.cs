@@ -27,8 +27,8 @@ namespace net.taptappun.RealtimeP2PKit.Example.Matchmaking
             public string type;
             public List<MachingRoom> rooms;
         }
-        public LobbyListener(string baseWsUrl)
-            => _url = baseWsUrl.Trim().TrimEnd('/') + "/parties/lobby/rooms";
+        public LobbyListener(string webSocketUrl)
+            => _url = webSocketUrl.Trim();
 
         public void Connect(long lastRoomId)
         {

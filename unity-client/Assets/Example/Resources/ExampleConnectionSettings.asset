@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: net.taptappun.RealtimeP2PKit.Example::net.taptappun.RealtimeP2PKit.Example.ExampleConnectionSettings
   Local:
     HttpBaseUrl: http://localhost:8787
-    WebSocketBaseUrl: ws://localhost:8787
+    LobbyWebSocketUrl: ws://localhost:8787/parties/lobby/rooms
   Remote:
     HttpBaseUrl: http://localhost:8787
-    WebSocketBaseUrl: ws://localhost:8787
+    LobbyWebSocketUrl: ws://localhost:8787/parties/lobby/rooms

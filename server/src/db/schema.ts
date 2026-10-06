@@ -27,5 +27,7 @@ export const roomMembers = sqliteTable(
   (table) => ({
     playerRoom: uniqueIndex('room_members_player').on(table.playerId),
     roomExpiry: index('room_members_room_expiry').on(table.roomId, table.expiresAt),
+    // The fixed signaling endpoint sweeps expired reservations across all rooms.
+    expiry: index('room_members_expiry').on(table.expiresAt),
   }),
 );

@@ -23,3 +23,5 @@ CREATE TABLE `room_members` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `room_members_player` ON `room_members` (`player_id`);--> statement-breakpoint
 CREATE INDEX `room_members_room_expiry` ON `room_members` (`room_id`,`expires_at`);
+--> statement-breakpoint
+CREATE INDEX `room_members_expiry` ON `room_members` (`expires_at`);

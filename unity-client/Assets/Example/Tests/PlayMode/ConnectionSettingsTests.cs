@@ -1,26 +1,19 @@
 #if UNITY_EDITOR
 using System;
-using System.Reflection;
 using NUnit.Framework;
-using net.taptappun.RealtimeP2PKit.Example.Signaling;
 
 namespace net.taptappun.RealtimeP2PKit.Example.Tests
 {
     public sealed class ConnectionSettingsTests
     {
-        [TestCase("wss://signaling.example.com/custom/session/42", "/custom/session/42", "")]
-        [TestCase("ws://localhost:8787/nested/session/?mode=demo%20test", "/nested/session/", "mode=demo%20test&")]
-        public void FullUrlPreservesPathAndQuery(string url, string path, string queryPrefix)
+        [TestCase("wss://signaling.example.com/custom/path?mode=test")]
+        [TestCase("ws://localhost:8787/signaling")]
+        public void CompleteUrlNeedsNoRoomTemplateOrCredentials(string url)
         {
-            using var client = new PartyKitSignalingClient(url, "player /+", "token?&=");
-            var build = typeof(PartyKitSignalingClient).GetMethod("BuildConnectionUrl", BindingFlags.Static | BindingFlags.NonPublic);
-            var result = new Uri((string)build.Invoke(null, new object[] { url, "player /+", "token?&=" }));
-            var original = new Uri(url);
-            Assert.AreEqual(original.Scheme, result.Scheme);
-            Assert.AreEqual(original.Host, result.Host);
-            Assert.AreEqual(original.Port, result.Port);
-            Assert.AreEqual(path, result.AbsolutePath);
-            Assert.AreEqual("?" + queryPrefix + "playerId=player%20%2F%2B&token=token%3F%26%3D", result.Query);
+            using var transport = new WebSocketSignalingTransport(url);
+            var configuredUrl = typeof(WebSocketSignalingTransport).GetField("_url",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            Assert.AreEqual(url, configuredUrl.GetValue(transport));
         }
 
         [TestCase("https://signaling.example.com/session")]

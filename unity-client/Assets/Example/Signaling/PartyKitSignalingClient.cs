@@ -14,6 +14,8 @@ namespace net.taptappun.RealtimeP2PKit.Example.Signaling
         public event Action<string, SignalingMessage> MessageReceived;
         private readonly ISignalingTransport _transport;
         private readonly string _playerId;
+        private readonly string _roomId;
+        private readonly string _token;
         private readonly TaskCompletionSource<bool> _ready = new();
         private bool _started;
         private bool _disposed;
@@ -24,26 +26,20 @@ namespace net.taptappun.RealtimeP2PKit.Example.Signaling
         private const float HeartbeatIntervalSeconds = 10;
         private const float HeartbeatTimeoutSeconds = 40;
 
-        public PartyKitSignalingClient(string webSocketUrl, string playerId, string token)
-            : this(new WebSocketSignalingTransport(BuildConnectionUrl(webSocketUrl, playerId, token)), playerId) { }
+        public PartyKitSignalingClient(string webSocketUrl, long roomId, string playerId, string token)
+            : this(new WebSocketSignalingTransport(webSocketUrl), roomId, playerId, token) { }
 
-        public PartyKitSignalingClient(ISignalingTransport transport, string playerId)
+        public PartyKitSignalingClient(ISignalingTransport transport, long roomId, string playerId, string token)
         {
-            if (string.IsNullOrWhiteSpace(playerId)) throw new ArgumentException("Player ID is required.", nameof(playerId));
-            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
-            _playerId = playerId;
-            _transport.MessageReceived += OnMessage;
-            _transport.Disconnected += Fail;
-        }
-        internal static string BuildConnectionUrl(string webSocketUrl, string playerId, string token)
-        {
+            if (roomId <= 0) throw new ArgumentOutOfRangeException(nameof(roomId));
             if (string.IsNullOrWhiteSpace(playerId)) throw new ArgumentException("Player ID is required.", nameof(playerId));
             if (string.IsNullOrWhiteSpace(token)) throw new ArgumentException("Player token is required.", nameof(token));
-            var uri = new UriBuilder(webSocketUrl);
-            var query = uri.Query.TrimStart('?');
-            uri.Query = (query.Length == 0 ? string.Empty : query + "&") +
-                $"playerId={Uri.EscapeDataString(playerId)}&token={Uri.EscapeDataString(token)}";
-            return uri.Uri.AbsoluteUri;
+            _transport = transport ?? throw new ArgumentNullException(nameof(transport));
+            _roomId = roomId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            _playerId = playerId;
+            _token = token;
+            _transport.MessageReceived += OnMessage;
+            _transport.Disconnected += Fail;
         }
         public async Task ConnectAsync()
         {
@@ -52,12 +48,13 @@ namespace net.taptappun.RealtimeP2PKit.Example.Signaling
             _started = true;
             _lastSignal = _lastHeartbeat = Time.realtimeSinceStartup;
             await _transport.ConnectAsync();
-            await SendProtocolAsync(new RoomSignalEnvelope { type = "client-ready" });
+            await SendProtocolAsync(new RoomSignalEnvelope { type = "join", roomId = _roomId, playerId = _playerId, token = _token });
             await _ready.Task;
         }
         private void OnMessage(string raw)
         {
             if (_disposed) return;
+            if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketReceive("Signaling", raw));
             RoomSignalEnvelope message;
             try { message = JsonConvert.DeserializeObject<RoomSignalEnvelope>(raw); }
             catch (JsonException) { return; }
@@ -101,7 +98,17 @@ namespace net.taptappun.RealtimeP2PKit.Example.Signaling
         }
         private async Task SendProtocolAsync(RoomSignalEnvelope message)
         {
-            try { await _transport.SendAsync(JsonConvert.SerializeObject(message)); }
+            try
+            {
+                var raw = JsonConvert.SerializeObject(message);
+                if (P2PNetworkLog.IsEnabled)
+                {
+                    var log = Newtonsoft.Json.Linq.JObject.Parse(raw);
+                    if (log["token"] != null) log["token"] = "[redacted]";
+                    Debug.Log(P2PNetworkLogFormat.WebSocketSend("Signaling", log.ToString(Formatting.None)));
+                }
+                await _transport.SendAsync(raw);
+            }
             catch (Exception) { Fail("signaling send failed"); }
         }
         private void Fail(string reason)
@@ -116,7 +123,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Signaling
             if (_disposed || !_started) return;
             var now = Time.realtimeSinceStartup;
             if (now - _lastSignal > HeartbeatTimeoutSeconds) { Fail("signaling heartbeat timeout"); return; }
-            if (now - _lastHeartbeat > HeartbeatIntervalSeconds)
+            if (_ready.Task.Status == TaskStatus.RanToCompletion && now - _lastHeartbeat > HeartbeatIntervalSeconds)
             {
                 _lastHeartbeat = now;
                 _ = SendProtocolAsync(new RoomSignalEnvelope { type = "heartbeat" });

@@ -4,7 +4,7 @@ import { and, count, eq, exists, gt, isNull, lt, lte, or, sql } from 'drizzle-or
 import { createDb } from '../db/client';
 import { gameRooms, players, roomMembers } from '../db/schema';
 import type { Env } from '../env';
-import { getRoom, LEASE_MS, listRooms, numericId, publishRooms, requirePlayer, roomResponse } from '../rooms';
+import { getSignaling, LEASE_MS, listRooms, numericId, publishRooms, requirePlayer, roomResponse } from '../rooms';
 
 const matchmaking = new Hono<{ Bindings: Env }>();
 matchmaking.post('/players', async (c) => {
@@ -33,7 +33,7 @@ matchmaking.post('/rooms', async (c) => {
     db.insert(roomMembers).values({ roomId: sql<number>`last_insert_rowid()`, playerId, expiresAt: now + LEASE_MS }),
   ]);
   const roomId = results[1][0].id;
-  const room = await getRoom(c.env, roomId);
+  const room = await getSignaling(c.env);
   await room.scheduleCleanup();
   c.executionCtx.waitUntil(publishRooms(c.env).catch((error) => console.error('room publication failed', error)));
   return c.json(await roomResponse(c.env.DB, roomId), 201);
@@ -91,7 +91,7 @@ matchmaking.post('/rooms/:roomId/join', async (c) => {
   if (results[1].meta.changes !== 1) {
     throw new HTTPException(409, { message: 'room is full or no longer available' });
   }
-  const room = await getRoom(c.env, roomId);
+  const room = await getSignaling(c.env);
   await room.scheduleCleanup();
   return c.json(await roomResponse(c.env.DB, roomId));
 });
@@ -103,8 +103,8 @@ matchmaking.post('/rooms/:roomId/leave', async (c) => {
   }
   const body = await c.req.json<{ playerId?: string; token?: string }>();
   const playerId = await requirePlayer(c.env.DB, body.playerId, body.token);
-  const room = await getRoom(c.env, roomId);
-  await room.leave(playerId);
+  const room = await getSignaling(c.env);
+  await room.leave(roomId, playerId);
   return c.json({ status: 'ok' });
 });
 

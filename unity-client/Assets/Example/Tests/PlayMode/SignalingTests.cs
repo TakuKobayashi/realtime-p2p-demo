@@ -89,12 +89,16 @@ namespace net.taptappun.RealtimeP2PKit.Example.Tests
         public void DemoAdapterWaitsForMembershipAndTranslatesPeerDiscovery()
         {
             var transport = new Transport();
-            using var adapter = new PartyKitSignalingClient(transport, "local");
+            using var adapter = new PartyKitSignalingClient(transport, 42, "local", "credential");
             var peers = new List<string>();
             adapter.PeerJoined += (id, initiator) => peers.Add(id + ":" + initiator);
             var connecting = adapter.ConnectAsync();
             Assert.IsFalse(connecting.IsCompleted);
-            Assert.AreEqual("client-ready", JsonUtility.FromJson<RoomSignalEnvelope>(transport.Sent[0]).type);
+            var join = JsonUtility.FromJson<RoomSignalEnvelope>(transport.Sent[0]);
+            Assert.AreEqual("join", join.type);
+            Assert.AreEqual("42", join.roomId);
+            Assert.AreEqual("local", join.playerId);
+            Assert.AreEqual("credential", join.token);
             transport.Receive(@"{""type"":""room-joined"",""peers"":[""existing""],""isInitiator"":true}");
             connecting.GetAwaiter().GetResult();
             transport.Receive(@"{""type"":""peer-joined"",""from"":""new"",""isInitiator"":false}");
@@ -105,7 +109,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Tests
         public void DemoAdapterTranslatesNegotiationAndRejectsMessagesForOtherRecipients()
         {
             var transport = new Transport();
-            using var adapter = new PartyKitSignalingClient(transport, "local");
+            using var adapter = new PartyKitSignalingClient(transport, 42, "local", "credential");
             SignalingMessage received = null;
             string sender = null;
             adapter.MessageReceived += (id, message) => { sender = id; received = message; };
@@ -129,7 +133,7 @@ namespace net.taptappun.RealtimeP2PKit.Example.Tests
         public void DemoAdapterFailsPendingMembershipWhenTransportCloses()
         {
             var transport = new Transport();
-            using var adapter = new PartyKitSignalingClient(transport, "local");
+            using var adapter = new PartyKitSignalingClient(transport, 42, "local", "credential");
             var connecting = adapter.ConnectAsync();
             transport.Close();
             Assert.Throws<InvalidOperationException>(() => connecting.GetAwaiter().GetResult());

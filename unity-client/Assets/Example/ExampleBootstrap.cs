@@ -53,7 +53,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
                 _localPlayer = Instantiate(_localPlayerPrefab, new Vector3(UnityEngine.Random.Range(-4f, 4f), 0.5f, UnityEngine.Random.Range(-4f, 4f)), Quaternion.identity);
                 _localPlayer.name = $"Player {ExampleRoomSession.Player.id} (Local)";
                 var signaling = new PartyKitSignalingClient(ExampleRoomSession.SignalingWebSocketUrl,
-                    ExampleRoomSession.Player.id, ExampleRoomSession.Player.token);
+                    ExampleRoomSession.Room.id, ExampleRoomSession.Player.id, ExampleRoomSession.Player.token);
                 await _manager.ConnectAsync(ExampleRoomSession.Player.id, signaling);
                 if (!_exiting) _status = ExampleLocalization.Message("status.controls");
             }

@@ -13,16 +13,19 @@ namespace net.taptappun.RealtimeP2PKit
         public event Action<string> Disconnected;
         private readonly string _url;
         private readonly string _logUrl;
+        private readonly bool _logPayloads;
         private WebSocket _socket;
         private TaskCompletionSource<bool> _opened;
         private bool _disposed;
 
-        public WebSocketSignalingTransport(string webSocketUrl)
+        public WebSocketSignalingTransport(string webSocketUrl, bool logPayloads = false)
         {
             if (!Uri.TryCreate(webSocketUrl, UriKind.Absolute, out var uri) ||
                 (uri.Scheme != "ws" && uri.Scheme != "wss") || !string.IsNullOrEmpty(uri.Fragment))
                 throw new ArgumentException("A valid signaling WebSocket URL without a fragment is required.", nameof(webSocketUrl));
             _url = webSocketUrl;
+            // Payload logging is opt-in: the transport cannot identify protocol-specific credentials.
+            _logPayloads = logPayloads;
             // An adapter may put credentials in its query; omit the query and user information from logs.
             _logUrl = new UriBuilder(uri) { Query = string.Empty, UserName = string.Empty, Password = string.Empty }.Uri.AbsoluteUri;
         }
@@ -43,7 +46,7 @@ namespace net.taptappun.RealtimeP2PKit
             {
                 if (_disposed) return;
                 var message = Encoding.UTF8.GetString(bytes);
-                if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketReceive("Signaling", message));
+                if (_logPayloads && P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketReceive("Signaling", message));
                 MessageReceived?.Invoke(message);
             };
             _socket.OnError += _ => Fail("signaling transport error");
@@ -71,7 +74,7 @@ namespace net.taptappun.RealtimeP2PKit
         {
             if (_disposed) throw new ObjectDisposedException(nameof(WebSocketSignalingTransport));
             if (_socket == null || _socket.State != WebSocketState.Open) throw new InvalidOperationException("The signaling transport is not open.");
-            if (P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketSend("Signaling", message));
+            if (_logPayloads && P2PNetworkLog.IsEnabled) Debug.Log(P2PNetworkLogFormat.WebSocketSend("Signaling", message));
             await _socket.SendText(message);
         }
         public void DispatchMessageQueue()

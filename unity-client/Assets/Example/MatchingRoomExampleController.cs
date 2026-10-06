@@ -68,7 +68,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
         private void ConnectLobby()
         {
             if (_destroyed || _lobby != null) return;
-            var listener = new LobbyListener(ExampleEndpoints.GetWebSocketBaseUrl());
+            var listener = new LobbyListener(ExampleEndpoints.GetLobbyWebSocketUrl());
             _lobby = listener;
             listener.RoomsReceived += rooms =>
             {

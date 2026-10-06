@@ -3,7 +3,7 @@ import { createDb, type Db } from './db/client';
 import { gameRooms, players, roomMembers } from './db/schema';
 import type { Env } from './env';
 import { getServerByName } from 'partyserver';
-import type { Room } from './party/room';
+import type { Signaling } from './party/signaling';
 import type { Lobby } from './party/lobby';
 import { InvalidPlayerCredentialsError } from './errors';
 
@@ -92,6 +92,6 @@ export async function roomResponse(d1: D1Database, roomId: number) {
   return { ...room, maxPlayers: room.maxPlayers ?? 0 };
 }
 
-export function getRoom(env: Env, roomId: number) {
-  return getServerByName<Env, Room>(env.Room, String(roomId));
+export function getSignaling(env: Env) {
+  return getServerByName<Env, Signaling>(env.Signaling, 'signaling');
 }

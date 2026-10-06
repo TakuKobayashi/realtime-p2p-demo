@@ -7,6 +7,9 @@ namespace net.taptappun.RealtimeP2PKit.Example.Signaling
     public class RoomSignalEnvelope
     {
         public string type;
+        public string roomId;
+        public string playerId;
+        public string token;
         public string from;
         public string to;
         public string[] peers;

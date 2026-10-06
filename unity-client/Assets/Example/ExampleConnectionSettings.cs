@@ -11,7 +11,7 @@ namespace net.taptappun.RealtimeP2PKit.Example
         public sealed class EndpointSet
         {
             public string HttpBaseUrl = "http://localhost:8787";
-            public string WebSocketBaseUrl = "ws://localhost:8787";
+            public string LobbyWebSocketUrl = "ws://localhost:8787/parties/lobby/rooms";
         }
 
         public EndpointSet Local = new EndpointSet();
@@ -32,10 +32,6 @@ namespace net.taptappun.RealtimeP2PKit.Example
         }
 
         public static string GetHttpBaseUrl() => Current.HttpBaseUrl;
-        public static string GetWebSocketBaseUrl() => Current.WebSocketBaseUrl;
-
-        // The Demo owns partyserver's route. The P2P library receives a complete URL.
-        public static string GetRoomWebSocketUrl(long roomId)
-            => $"{GetWebSocketBaseUrl().TrimEnd('/')}/parties/room/{roomId.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        public static string GetLobbyWebSocketUrl() => Current.LobbyWebSocketUrl;
     }
 }

@@ -14,7 +14,7 @@ type MessagePayloads = {
   subscribed: {};
   pong: {};
   "room-joined": { peers: string[]; isInitiator: boolean };
-  "peer-joined": { from: string };
+  "peer-joined": { from: string; isInitiator: boolean };
   "peer-left": { from: string };
   offer: { from: string; sdp: string };
   answer: { from: string; sdp: string };
@@ -71,7 +71,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     return { ws, messages, wait };
   }
   async function connect(roomId: number, player: Player) {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/parties/room/${roomId}?playerId=${player.id}&token=${player.token}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/signaling`);
     sockets.push(ws);
     const messages: Message[] = [];
     ws.addEventListener("message", (event) => messages.push(JSON.parse(String(event.data)) as Message));
@@ -84,9 +84,23 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
       }
       throw new Error(`No ${type} received for player ${player.id}`);
     };
-    ws.send(JSON.stringify({ type: "client-ready" }));
+    ws.send(JSON.stringify({ type: "join", roomId, ...credentials(player) }));
     const roster = await wait("room-joined");
     return { ws, messages, wait, roster };
+  }
+  async function rejected(message: RequestBody, expectedCode: number) {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/signaling`);
+    sockets.push(ws);
+    const closed = new Promise<number>((yes, no) => {
+      ws.addEventListener("close", event => yes(event.code), { once: true });
+      ws.addEventListener("error", no, { once: true });
+    });
+    await new Promise<void>((yes, no) => {
+      ws.addEventListener("open", () => yes(), { once: true });
+      ws.addEventListener("error", no, { once: true });
+    });
+    ws.send(JSON.stringify(message));
+    assert.strictEqual(await closed, expectedCode);
   }
   async function until(check: () => Promise<boolean>) {
     for (let i = 0; i < 100; i++) { if (await check()) return; await delay(50); }
@@ -108,6 +122,9 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
       await delay(250);
     }
     assert.ok(ready, output);
+    assert.strictEqual((await fetch(`${base}/signaling`)).status, 426);
+    assert.strictEqual((await fetch(`${base}/parties/room/1`)).status, 404);
+    await rejected({ type: "offer", to: "1", sdp: "unauthenticated" }, 4001);
 
     // No room has ever been created: HTTP returns [] and the lobby can subscribe.
     assert.deepEqual(await api("/rooms"), []);
@@ -125,6 +142,9 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     await api("/rooms", { ...credentials(a), maxPlayers: -1 }, 400);
     const room = await api("/rooms", { ...credentials(a), maxPlayers: 3 }, 201);
     assert.strictEqual(room.id, 1);
+    await rejected({ type: "join", roomId: room.id, ...credentials(a), token: "invalid" }, 4001);
+    await rejected({ type: "join", roomId: 0, ...credentials(a) }, 4001);
+    await rejected({ type: "join", roomId: room.id, ...credentials(b) }, 4003);
     assert.strictEqual(room.memberCount, 1); // Creator is listed before anyone else arrives.
     await api(`/rooms/${room.id}/join`, { ...credentials(b), token: "invalid" }, 401);
     await api(`/rooms/${room.id}/leave`, { ...credentials(a), token: "invalid" }, 401);
@@ -172,6 +192,20 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     sa.ws.send(JSON.stringify({ type: "heartbeat" }));
     await sa.wait("heartbeat");
 
+    // Both rooms share the exact same URL; membership alone determines delivery.
+    const otherRoom = await api("/rooms", { ...credentials(d), maxPlayers: 0 }, 201);
+    assert.deepEqual((await browser.wait("rooms-created")).rooms.map(r => r.id), [otherRoom.id]);
+    const other = await connect(otherRoom.id, d);
+    assert.deepEqual(other.roster.peers, []);
+    sa.ws.send(JSON.stringify({ type: "offer", roomId: otherRoom.id, to: d.id, sdp: "cross-room" }));
+    other.ws.send(JSON.stringify({ type: "offer", roomId: room.id, to: b.id, sdp: "cross-room" }));
+    await delay(150);
+    assert.ok(!other.messages.some(m => m.type === "offer"));
+    assert.ok(!sb.messages.some(m => m.type === "offer"));
+    await api(`/rooms/${otherRoom.id}/leave`, credentials(d));
+    await delay(100);
+    assert.ok(!sb.messages.some(m => m.type === "peer-left" && m.from === d.id));
+
     // Replacing a socket cannot let its delayed onClose delete the new membership.
     const replacement = await connect(room.id, a);
     await sb.wait("peer-left", (m) => m.from === a.id);
@@ -191,7 +225,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
 
     // No fixed two-player limit: admit five in an unlimited room.
     const unlimited = await api("/rooms", { ...credentials(a), maxPlayers: 0 }, 201);
-    assert.strictEqual(unlimited.id, 2); // Deleted IDs are not reused.
+    assert.strictEqual(unlimited.id, 3); // Deleted IDs are not reused.
     assert.deepEqual((await browser.wait("rooms-created")).rooms.map((r) => r.id), [unlimited.id]);
     // The room created between HTTP and socket subscription is caught up exactly once.
     const catchUp = await discover(room.id);
@@ -200,6 +234,11 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     catchUp.ws.close();
     for (const player of players.slice(1, 5)) await api(`/rooms/${unlimited.id}/join`, credentials(player));
     assert.strictEqual((await api("/rooms"))[0].memberCount, 5);
+    // Concurrent socket adoption produces exactly one offerer for the pair.
+    const [parallelB, parallelC] = await Promise.all([connect(unlimited.id, b), connect(unlimited.id, c)]);
+    assert.strictEqual(parallelB.roster.peers.includes(c.id) !== parallelC.roster.peers.includes(b.id), true);
+    const answerer = parallelB.roster.peers.length === 0 ? parallelB : parallelC;
+    assert.strictEqual((await answerer.wait("peer-joined")).isInitiator, false);
     for (const player of players.slice(0, 5)) await api(`/rooms/${unlimited.id}/leave`, credentials(player));
 
     // Simultaneous joins cannot exceed the last available slot.
@@ -214,7 +253,7 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     assert.deepEqual(await api("/rooms"), []);
 
     // Newness is a numeric comparison, including RoomId 9 -> 10.
-    for (let id = 4; id <= 12; id++) {
+    for (let id = 5; id <= 13; id++) {
       const next = await api("/rooms", { ...credentials(a), maxPlayers: 0 }, 201);
       assert.strictEqual(next.id, id);
       assert.deepEqual((await reconnected.wait("rooms-created")).rooms.map((r) => r.id), [id]);
@@ -241,6 +280,12 @@ test("room discovery, admission, mesh signaling and membership lifecycle", async
     const silent = await connect(silentRoom.id, players[5]);
     execFileSync(process.execPath, [wrangler, "d1", "execute", "realtime-p2p-db", "--local", "--persist-to", state,
       "--command", `UPDATE room_members SET expires_at = 0 WHERE room_id IN (${abandoned.id}, ${silentRoom.id})`],
+      { cwd: root, windowsHide: true, env: { ...process.env, WRANGLER_SEND_METRICS: "false" }, stdio: "pipe" });
+    // HTTP re-admission removes the last expired reservation before the alarm runs.
+    // The old empty room still needs physical deletion even though no expired row remains.
+    const readmitted = await api("/rooms", { ...credentials(a), maxPlayers: 0 }, 201);
+    execFileSync(process.execPath, [wrangler, "d1", "execute", "realtime-p2p-db", "--local", "--persist-to", state,
+      "--command", `UPDATE room_members SET expires_at = 0 WHERE room_id = ${readmitted.id}`],
       { cwd: root, windowsHide: true, env: { ...process.env, WRANGLER_SEND_METRICS: "false" }, stdio: "pipe" });
     await delay(16_000);
     const verify = execFileSync(process.execPath, [wrangler, "d1", "execute", "realtime-p2p-db", "--local", "--persist-to", state,
